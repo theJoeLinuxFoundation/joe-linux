@@ -116,14 +116,12 @@ steps = [
   { run = 'pgrep -u joe -x gnome-shell', wait = "4m", interval = "3s" },
   { run = 'test -S /run/user/1000/wayland-0', wait = "3m", interval = "3s" },
   { run = '''loginctl show-session $(loginctl list-sessions --no-legend | awk '$3=="joe"{print $1; exit}') -p Type -p Class''', contains = "Type=wayland" },
-  { run = 'sleep 15', name = "let the session settle" },
-  { screenshot = "1-session.png" },
 
   { section = "joe's look: a taskbar, a start menu, tray and desktop icons, all running" },
-  { run = 'in_session "gnome-extensions info dash-to-panel@jderose9.github.com"', matches = 'State: ACTIVE$' },
-  { run = 'in_session "gnome-extensions info arcmenu@arcmenu.com"', matches = 'State: ACTIVE$' },
-  { run = 'in_session "gnome-extensions info appindicatorsupport@rgcjonas.gmail.com"', matches = 'State: ACTIVE$' },
-  { run = 'in_session "gnome-extensions info ding@rastersoft.com"', matches = 'State: ACTIVE$' },
+  { run = 'in_session "gnome-extensions info dash-to-panel@jderose9.github.com"', matches = 'State: ACTIVE$', wait = "1m", interval = "2s" },
+  { run = 'in_session "gnome-extensions info arcmenu@arcmenu.com"', matches = 'State: ACTIVE$', wait = "1m", interval = "2s" },
+  { run = 'in_session "gnome-extensions info appindicatorsupport@rgcjonas.gmail.com"', matches = 'State: ACTIVE$', wait = "1m", interval = "2s" },
+  { run = 'in_session "gnome-extensions info ding@rastersoft.com"', matches = 'State: ACTIVE$', wait = "1m", interval = "2s" },
   # The folders every account gets, among them the desktop's own; the
   # icons on it are drawn by a program of their own, which must stay up.
   { run = 'test -d /home/joe/Desktop -a -d /home/joe/Documents', wait = "60s", interval = "3s", name = "joe's folders are made" },
@@ -134,6 +132,8 @@ steps = [
   { run = 'in_session "gsettings get org.gnome.desktop.interface accent-color"', equals = "'teal'" },
   { run = 'in_session "gsettings get org.gnome.desktop.wm.preferences button-layout"', equals = "'appmenu:minimize,maximize,close'" },
   { run = 'in_session "gsettings get org.gnome.desktop.background picture-uri"', equals = "'file:///usr/share/backgrounds/joe/joe-l.svg'" },
+
+  { screenshot = "1-session.png" },
 
   { section = "the core applications start" },
   { use = "starts", with = { name = "Terminal", command = "gnome-terminal", check = "running gnome-terminal-server", log = "/tmp/gnome-terminal.log", seconds = 15 } },

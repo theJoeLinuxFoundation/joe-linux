@@ -3,6 +3,7 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
+#include <QQuickWindow>
 
 #include "backend.h"
 
@@ -53,6 +54,11 @@ int main(int argc, char *argv[])
         backend->setScreenshotDir(parser.value(screenshots));
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
                      [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
+    QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, &app, [](QObject *root) {
+        if (auto *window = qobject_cast<QQuickWindow *>(root))
+            QObject::connect(window, &QQuickWindow::frameSwapped, window,
+                             [] { qInfo("Installer window is ready"); }, Qt::SingleShotConnection);
+    });
     engine.loadFromModule("Joe.Installer", "Main");
     return app.exec();
 }

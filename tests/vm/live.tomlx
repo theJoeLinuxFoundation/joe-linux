@@ -41,6 +41,12 @@ cpus = 8
 display = true
 boot_timeout = "10m"
 
+# Wait for the currently running installer's first presented frame.
+[templates.installer-window]
+steps = [
+  { run = """pid=$(pgrep -u liveuser -x joe-installer) && journalctl -b "_PID=$pid" -g 'Installer window is ready' -q --no-pager""", wait = "2m", interval = "2s", contains = "Installer window is ready" },
+]
+
 [tests.live]
 description = "the installation medium boots into a live session with the installer, from a CD and from a USB stick"
 tags = ["vm", "joe", "live"]
@@ -101,8 +107,7 @@ steps = [
   # the rule to doas.conf at boot, once, and not to the medium's image.
   { run = "su liveuser -c 'doas -n id -u'", equals = "0" },
   { run = 'grep -c liveuser /etc/doas.conf', equals = "1" },
-  { run = 'pgrep -u liveuser -x joe-installer', wait = "2m", interval = "3s", name = "the session opened the installer" },
-  { run = 'sleep 15', name = "let it draw" },
+  { use = "installer-window" },
   { screenshot = "session.png" },
 
   { section = "the medium carries what the installer installs, once" },

@@ -99,10 +99,10 @@ params = ["how"]
 steps = [
   { run = 'pgrep -u liveuser -x gnome-shell', wait = "5m", interval = "3s", name = "the live session is up" },
   # The session opened the installer by itself; the test drives its own.
-  { run = 'pgrep -u liveuser -x joe-installer', wait = "2m", interval = "3s", name = "the session opened the installer" },
-  { run = 'sleep 10', name = "let it draw" },
+  { use = "installer-window" },
   { screenshot = "installer-0-opened.png" },
-  { run = 'pkill -x joe-installer; sleep 2', exit = "any" },
+  { run = 'pkill -x joe-installer' },
+  { run = '! pgrep -x joe-installer', wait = "15s", interval = "1s" },
   { run = '''su liveuser -c "export $live_env; joe-installer --autotest /dev/vda{{how}} >/tmp/installer.log 2>&1 &"''', name = "start the installer, to install onto /dev/vda{{how}}" },
   { run = 'installer_page welcome 120', equals = "welcome", timeout = "3m" },
   { screenshot = "installer-1-welcome.png" },
@@ -124,12 +124,22 @@ steps = [
   { boot = true, timeout = "10m" },
 ]
 
+# GTK exports the initial setup window on its session bus once it exists.
+[templates.initial-setup-window]
+steps = [
+  { run = 'busctl --machine=gnome-initial-setup@.host --user introspect org.gnome.InitialSetup /org/gnome/InitialSetup/window/1 org.gtk.Actions >/dev/null', wait = "5m", interval = "3s", name = "the first-run setup window is open" },
+]
+
 # What dave does on any joe system.
 [templates.dave-works]
 steps = [
   { section = "a change makes a rollback point, and rolling back returns to it" },
   { run = 'dave install ninja', timeout = "10m" },
   { run = 'command -v ninja' },
+  { run = 'dave deployments pin 2', equals = "Deployment 2 pinned." },
+  { run = 'dave deployments', matches = '^.* 2 +good +pinned ' },
+  { run = 'dave deployments unpin 2', equals = "Deployment 2 unpinned." },
+  { run = 'dave deployments', lacks = "pinned" },
   { run = 'dave rollback' },
   { reboot = {}, timeout = "10m" },
   { run = 'dave status', contains = "Running deployment 2." },
@@ -194,8 +204,7 @@ JSON
 
   { section = "nobody has an account yet, and the first-run setup is waiting" },
   { run = "awk -F: '$3 >= 1000 && $3 < 60000' /etc/passwd", equals = "", name = "no accounts" },
-  { run = 'pgrep -f gnome-initial-setup', wait = "5m", interval = "3s", name = "gnome-initial-setup is running" },
-  { run = 'sleep 20', name = "let it draw" },
+  { use = "initial-setup-window" },
   { screenshot = "first-boot.png" },
   { run = 'systemctl --failed --no-legend --plain', exit = "any", equals = "", name = "no failed units" },
 
@@ -267,9 +276,23 @@ steps = [
 
   { section = "with accounts there, the display manager asks who is signing in" },
   { run = 'systemctl is-active gdm.service', wait = "5m", interval = "3s" },
-  { run = 'sleep 30', name = "let it draw" },
+  { write = "/tmp/greeter-user.py", from = "tests/vm/install/greeter-user.py", mode = "644" },
+  { run = '''
+sid=$(loginctl show-seat seat0 -p ActiveSession --value)
+test "$(loginctl show-session "$sid" -p Class --value)" = greeter &&
+    user=$(loginctl show-session "$sid" -p Name --value) &&
+    systemd-run --quiet --user --machine="$user@.host" --wait --pipe python3 /tmp/greeter-user.py maja
+''', wait = "5m", interval = "3s", name = "the login screen shows the imported administrator" },
   { run = 'pgrep -f gnome-initial-setup', exit = "any", equals = "", name = "no first-run setup" },
   { screenshot = "login.png" },
+  { run = 'systemctl --failed --no-legend --plain', equals = "", name = "no failed units" },
+
+  { send = "doas -u maja doas id -u; echo __DOAS_$?__\n" },
+  { expect = 'doas \(maja@[^)]*\) password: ', timeout = "60s" },
+  { send = "pour\n" },
+  { expect = '^0\r?\n__DOAS_0__', timeout = "60s", name = "the imported administrator becomes root with the imported password" },
+  { wait_prompt = true },
+  { use = "dave-works" },
 ]
 
 # The installer's "Enforce the security module": the installed system's
@@ -293,8 +316,7 @@ steps = [
   { run = 'systemctl show -p ConditionResult dave-seal.service', contains = "no", name = "the first boot had nothing to seal" },
 
   { section = "the first-run setup comes up, and nothing was refused" },
-  { run = 'pgrep -f gnome-initial-setup', wait = "5m", interval = "3s", name = "gnome-initial-setup is running" },
-  { run = 'sleep 20', name = "let it draw" },
+  { use = "initial-setup-window" },
   { screenshot = "first-boot-enforcing.png" },
   { run = 'systemctl --failed --no-legend --plain', exit = "any", equals = "", name = "no failed units" },
   { run = '''dmesg | grep 'joe: denied' | sed 's/.*joe: //; s/ pid=[0-9]*//' | sort | uniq -c | sort -rn''', exit = "any", equals = "", name = "the security module denied nothing" },
