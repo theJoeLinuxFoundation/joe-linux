@@ -1,7 +1,7 @@
 .{
     .name = "systemd",
     .version = "262.1",
-    .release = 11,
+    .release = 10,
     .description = "System and service manager, with udev and the systemd-boot boot loader",
     .license = "LGPL-2.1-or-later",
     .sources = .{
