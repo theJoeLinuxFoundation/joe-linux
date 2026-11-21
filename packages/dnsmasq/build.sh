@@ -43,6 +43,8 @@ EOF
     # dnsmasq to take its D-Bus name, with the switches that make it do so
     # and run as dnsmasq, and without a PID file. It is not enabled.
     install -d "$DESTDIR/usr/lib/systemd/system"
+    # NetworkManager starts the public executable with per-interface lease files.
+    install -Dm755 "$DESTDIR/usr/sbin/dnsmasq" "$DESTDIR/usr/libexec/dnsmasq"
     cat > "$DESTDIR/usr/lib/systemd/system/dnsmasq.service" << "EOF"
 [Unit]
 Description=dnsmasq - A lightweight DHCP and caching DNS server
@@ -54,8 +56,8 @@ Wants=nss-lookup.target
 [Service]
 Type=dbus
 BusName=uk.org.thekelleys.dnsmasq
-ExecStartPre=/usr/sbin/dnsmasq --test
-ExecStart=/usr/sbin/dnsmasq -k --enable-dbus --user=dnsmasq --pid-file
+ExecStartPre=/usr/libexec/dnsmasq --test
+ExecStart=/usr/libexec/dnsmasq -k --enable-dbus --user=dnsmasq --pid-file
 ExecReload=/usr/bin/kill -HUP $MAINPID
 
 [Install]

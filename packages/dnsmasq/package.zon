@@ -1,7 +1,7 @@
 .{
     .name = "dnsmasq",
     .version = "2.93",
-    .release = 1,
+    .release = 2,
     .description = "Lightweight DNS forwarder and DHCP, router advertisement and TFTP server",
     .license = "GPL-2.0-only OR GPL-3.0-only",
     .sources = .{
@@ -9,4 +9,10 @@
     },
     .depends = .{ "glibc", "dbus", "libidn2", "nettle", "gmp", "nftables" },
     .build_depends = .{ "pkgconf", "gettext" },
+    .operations = .{
+        // Bind DNS and DHCP sockets, configure DHCP interfaces, and send
+        // ICMP and ARP before handing out a lease. The daemon drops to
+        // dnsmasq and records leases in its configured database.
+        .{ .programs = .{"usr/libexec/dnsmasq"}, .allow = .{ "net", "cap:net_bind_service", "cap:net_admin", "cap:net_raw", "cap:setgid", "cap:setuid", "write:/var/lib/misc/dnsmasq.leases" } },
+    },
 }
