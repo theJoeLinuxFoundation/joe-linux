@@ -21,4 +21,6 @@ build() {
 
 package() {
     make DESTDIR="$DESTDIR" install
+    install -Dm755 "$DESTDIR/usr/sbin/nft" "$DESTDIR/usr/libexec/nft"
+    sed -i 's|=/usr/sbin/nft |=/usr/libexec/nft |' "$DESTDIR/usr/lib/systemd/system/nftables.service"
 }
