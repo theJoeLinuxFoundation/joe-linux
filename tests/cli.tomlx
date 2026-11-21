@@ -134,6 +134,26 @@ steps = [
   { run = '"${D[@]}" install hello', contains = "Already installed." },
 ]
 
+[tests.cli-no-triggers]
+description = "a transaction can skip a matching package trigger"
+tags = ["fast", "cli"]
+deps = ["cli-install"]
+cwd = "build/cli-test"
+env = ${cli_env}
+prelude = ${cli_prelude}
+steps = [
+  { run = '''
+mkdir -p hook-root/{etc/dave,bin,usr/lib/dave/triggers}
+cp -r root/etc/dave/{keys,repos.zon} hook-root/etc/dave/
+cp "$dave" hook-root/bin/dave
+printf '.{ .paths = .{"usr/bin/tree"}, .exec = .{"/bin/dave", "key", "generate", "/trigger-ran"} }\n' >hook-root/usr/lib/dave/triggers/tree.zon
+unshare --map-root-user "$dave" --root hook-root install --no-triggers tree
+''', contains = "Done." },
+  { run = 'test -f hook-root/usr/bin/tree && test ! -e hook-root/trigger-ran.pub' },
+  { run = 'unshare --map-root-user "$dave" --root hook-root remove tree' },
+  { run = 'test -s hook-root/trigger-ran.pub', name = "the same trigger runs when enabled" },
+]
+
 [tests.cli-queries]
 description = "questions about what is installed"
 tags = ["fast", "cli"]
@@ -175,6 +195,27 @@ steps = [
   { run = 'cat root/etc/dave/world', equals = "hello", name = "a dry run leaves the world as it was" },
   { run = 'mkdir -p fresh/etc/dave && cp -r root/etc/dave/keys root/etc/dave/repos.zon fresh/etc/dave/ && "$dave" --root fresh --dry-run install tree', matches = '^  tree +2\.2-r1$', name = "a dry run of a root that has fetched nothing yet" },
   { run = 'test ! -e fresh/usr/bin/tree && test ! -e fresh/etc/dave/world', name = "changes it not at all" },
+]
+
+[tests.cli-system-commands]
+description = "disk listing for people and deployment commands outside a deployment"
+tags = ["fast", "cli"]
+deps = ["cli-setup"]
+cwd = "build/cli-test"
+env = ${cli_env}
+prelude = ${cli_prelude}
+steps = [
+  { run = '''
+mkdir -p disk-tools
+cat >disk-tools/lsblk <<'EOF'
+#!/bin/sh
+echo '{"blockdevices":[{"name":"fixture","path":"/dev/fixture","type":"disk","size":8000000000,"model":"Test drive"}]}'
+EOF
+chmod +x disk-tools/lsblk
+PATH="$work/disk-tools:$PATH" "$dave" install-system --list
+''', equals = "/dev/fixture  8 GB  Test drive  cannot be erased: it is smaller than 20 GB" },
+  { run = '"${D[@]}" deployments pin 1', exit = 1, stream = "combined", contains = "only applies to a running joe Linux system" },
+  { run = '"${D[@]}" deployments unpin 1', exit = 1, stream = "combined", contains = "only applies to a running joe Linux system" },
 ]
 
 [tests.cli-root-needed]

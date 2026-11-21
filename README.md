@@ -244,10 +244,9 @@ reason. Each run's logs, report and test files are kept in
 `build/neomake/runs/`, and a failure names the step and the line it is
 written on.
 
-GitHub Actions runs dave's unit tests on pull requests and pushes to `main`,
-using Zig 0.17.1 on Ubuntu: `neomake test unit` (requires `zstd`). Tests that
-need btrfs or fs-verity skip when those features are unavailable. This
-workflow does not run the command-line or VM suites below.
+GitHub Actions runs `neomake test unit 'cli-*'` on pull requests and pushes
+to `main` and `beta*` branches, using Zig 0.17.1 on Ubuntu. Unit tests that
+need btrfs or fs-verity skip when those features are unavailable.
 
 Requirements on the build machine: Zig 0.17.1, neomake, a C toolchain, QEMU
 with KVM, OVMF firmware, btrfs-progs 6.12 or newer, bubblewrap, zstd,
@@ -427,7 +426,7 @@ Scratch (systemd, development branches), with the same package versions. Recipes
 | `image/` | Image and live medium specifications, and the scaffold's scripts |
 | `installer/` | The graphical installer |
 | `tests/` | Command-line tests and VM scenarios, as neomake tests (`*.tomlx`) |
-| `.github/workflows/` | The unit tests for pushes and pull requests, and the container image |
+| `.github/workflows/` | The unit and command-line tests for pushes and pull requests, and the container image |
 
 ## Not done yet
 

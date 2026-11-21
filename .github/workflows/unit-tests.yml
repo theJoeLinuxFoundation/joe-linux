@@ -1,8 +1,8 @@
-name: Unit tests
+name: Unit and CLI tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'beta*']
   pull_request:
   workflow_dispatch:
 
@@ -15,8 +15,8 @@ concurrency:
 
 jobs:
   unit-tests:
-    name: dave unit tests
-    runs-on: ubuntu-24.04
+    name: dave unit and CLI tests
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     defaults:
       run:
@@ -59,11 +59,14 @@ jobs:
           cargo install --locked --git https://github.com/theJoeLinuxFoundation/neomake \
             --rev b5802337db92379f0149e0087447adfc8ed4dd05 neomake
 
-      - name: Run unit tests
+      - name: Install CLI test dependencies
         run: |
-          # Archive tests need zstd, which the hosted Ubuntu image provides.
-          command -v zstd
-          # Filesystem-dependent tests retain their existing skip behaviour.
-          # On GitHub Actions neomake groups the output, annotates failures
-          # and writes the job summary.
-          neomake test unit --junit build/junit.xml
+          sudo apt-get update
+          sudo apt-get install -y btrfs-progs bubblewrap cpio dosfstools fdisk mtools squashfs-tools xorriso zstd
+          # The CLI tests build images and enter temporary roots in a user namespace.
+          if ! unshare --map-root-user true; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+
+      - name: Run unit and CLI tests
+        run: neomake test unit 'cli-*' --junit build/junit.xml
