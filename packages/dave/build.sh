@@ -1,5 +1,5 @@
-# dave is a static binary with no libc, cross-built by Zig on the build host,
-# because joe does not package a Zig compiler yet. bootstrap/build-packages.sh
+# dave is a static binary with no libc, cross-built by Zig on the build host.
+# joe also packages Zig. bootstrap/build-packages.sh
 # places the binary, the unit files from system/, and the manual page and
 # shell completions from dave/share/ in this recipe's files/ directory before
 # the build.

@@ -406,7 +406,7 @@ edit packages/NAME, bump .release in its package.zon
 bootstrap/build-packages.sh NAME      on the build machine
 make serve-repo                       leave it running
 
-sudo dave upgrade                     in the virtual machine
+doas dave upgrade                     in the virtual machine
 reboot
 ```
 

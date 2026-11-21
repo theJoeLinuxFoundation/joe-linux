@@ -76,7 +76,7 @@ and exits successfully when all current findings are in the baseline.
 ## `build.sh`
 
 A bash file defining functions. It is sourced, not executed, so it must not run
-anything at top level.
+commands at top level. A top-level `NOSTRIP=1` assignment is the exception.
 
 | Function  | Default            | Purpose                                   |
 |-----------|--------------------|-------------------------------------------|
@@ -158,8 +158,7 @@ exists, someone else is writing that recipe.
 - Do not run test suites.
 - Do not strip, delete `.la` files or remove `usr/share/doc`,
   `usr/share/info` and `usr/share/gtk-doc/html` yourself; the build driver
-  does that for every package. Set `NOSTRIP=1` at the top of `build.sh` to
-  keep symbols.
+  does that for every package. Use the `NOSTRIP=1` exception to keep symbols.
 - Ship Python byte code as the build compiles it. The driver rewrites every
   `__pycache__/*.pyc` to check a hash of its source (PEP 552) instead of a
   modification time, which dave does not keep, so it stays valid on installed

@@ -121,7 +121,7 @@ Recipes follow Linux From Scratch and Beyond LFS (systemd, development branch). 
 - `packages/gcc-fortran` builds the same GCC source as `packages/gcc` and pins `gcc =VERSION` in its `depends`; changing gcc's version means changing both. `packages/libxml2-python` does the same with `packages/libxml2`.
 - `packages/linux-firmware-extra` builds the same source as `packages/linux-firmware` and holds exactly what that leaves out (Qualcomm Arm SoCs, server network and switch chips); the list of paths is in both `build.sh` files, and the versions must match.
 - `dave/share/` holds dave's manual page and its bash, zsh and fish completions. Like the units, they are installed by both `packages/dave/build.sh` and `image/add-dave.sh`.
-- `packages/dave/files/` is populated by `build-packages.sh` with the freshly built binary, `system/*` and `dave/share/*`. dave is cross-built on the host because joe does not package Zig. A dave change reaches an image only after the `dave` package is rebuilt, which needs a `.release` bump in `packages/dave/package.zon`.
+- `packages/dave/files/` is populated by `build-packages.sh` with the freshly built binary, `system/*` and `dave/share/*`. joe packages Zig 0.17.1. The dave recipe still takes the static binary cross-built on the host. A dave change reaches an image only after the `dave` package is rebuilt, which needs a `.release` bump in `packages/dave/package.zon`.
 ## Git
 
 - Commit messages: `area: imperative summary`, lowercase, no trailing period.
