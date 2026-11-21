@@ -11,6 +11,20 @@ package() {
     for unit in NetworkManager accounts-daemon upower udisks2 ModemManager; do
         ln -s "../$unit.service" "$system/multi-user.target.wants/$unit.service"
     done
+    # The desktop uses NetworkManager. Upstream's 90-systemd.preset enables
+    # networkd and its wait-online unit on first boot of the console image.
+    install -d "$DESTDIR/usr/lib/systemd/system-preset" "$system/network-online.target.wants"
+    printf '%s\n' 'disable systemd-networkd.service' 'disable systemd-networkd-wait-online.service' \
+        > "$DESTDIR/usr/lib/systemd/system-preset/80-joe-desktop-network.preset"
+    ln -s ../NetworkManager-wait-online.service "$system/network-online.target.wants/NetworkManager-wait-online.service"
+
+    # An upgrade preserves the old preset's link in /etc. Skip that wait
+    # while the desktop's NetworkManager waiter is installed.
+    install -d "$system/systemd-networkd-wait-online.service.d"
+    cat > "$system/systemd-networkd-wait-online.service.d/10-joe-desktop.conf" <<'EOT'
+[Unit]
+ConditionPathExists=!/usr/lib/systemd/system/network-online.target.wants/NetworkManager-wait-online.service
+EOT
 
     # Daemons that are also started over D-Bus: the alias `systemctl enable`
     # makes from the unit's Alias= line is the name D-Bus activates.

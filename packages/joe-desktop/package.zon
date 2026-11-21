@@ -1,7 +1,7 @@
 .{
     .name = "joe-desktop",
     .version = "0.2",
-    .release = 8,
+    .release = 9,
     .description = "The joe Linux desktop: GNOME on Wayland",
     .license = "MIT",
     // Depends on joe-base, whose directory layout cannot be installed over

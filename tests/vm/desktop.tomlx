@@ -99,6 +99,8 @@ steps = [
   { section = "the system finishes booting and the display manager is running" },
   { run = 'systemctl is-active graphical.target', wait = "5m", interval = "3s" },
   { run = 'systemctl is-active gdm.service', wait = "3m", interval = "3s" },
+  { run = 'systemctl show network-online.target -p Wants --value', contains = "NetworkManager-wait-online.service", lacks = "systemd-networkd-wait-online.service" },
+  { run = 'systemctl start network-online.target && systemctl is-active NetworkManager-wait-online.service', timeout = "45s", equals = "active" },
 
   { section = "optional servers remain off until the administrator starts them" },
   { run = 'systemctl is-enabled rsyncd.socket', exit = "any", equals = "disabled" },
