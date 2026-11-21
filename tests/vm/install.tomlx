@@ -161,6 +161,9 @@ jq -r '[.disks[].device] | index("/dev/sr0")' <<'JSON'
 JSON
 ''', equals = "null", name = "the medium is not offered" },
 
+  { section = "the installer explains when disk listing cannot start" },
+  { run = """su liveuser -c 'LC_ALL=C QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software QT_FORCE_STDERR_LOGGING=1 JOE_INSTALLER_DAVE=/missing/dave joe-installer --autotest /dev/vda'""", exit = 1, stream = "combined", contains = "page failed: Couldn't list the disks: Could not start /missing/dave", timeout = "1m" },
+
   { use = "installs", with = { how = "" } },
 
   { section = "the installed system starts from the disk as deployment 1" },

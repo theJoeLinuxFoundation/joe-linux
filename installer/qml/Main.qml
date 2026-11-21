@@ -16,6 +16,8 @@ ApplicationWindow {
     color: Theme.window
     font.family: Theme.family
 
+    onClosing: close => { close.accepted = Backend.state !== Backend.Installing }
+
     // The disk chosen on the disk page, as the model describes it, and
     // whether joe goes beside what is on it.
     property var disk: ({})
@@ -26,18 +28,18 @@ ApplicationWindow {
     property string importRoot: ""
 
     function showDisks() {
-        Backend.refreshDisks()
         stack.push(diskPage)
+        Backend.refreshDisks()
     }
     function confirm(row, beside) {
         window.disk = Backend.disks.get(row)
         window.beside = beside
-        Backend.findSystems()
         stack.push(confirmPage)
+        Backend.findSystems()
     }
     function install() {
-        Backend.install(window.disk.path, window.beside, window.enforce, window.importRoot)
         stack.replace(null, progressPage)
+        Backend.install(window.disk.path, window.beside, window.enforce, window.importRoot)
     }
 
     StackView {
@@ -50,16 +52,37 @@ ApplicationWindow {
     Component { id: diskPage; DiskPage { onBack: stack.pop(); onProceed: window.confirm(chosen, beside) } }
     Component { id: confirmPage; ConfirmPage { disk: window.disk; beside: window.beside; onBack: stack.pop(); onProceed: { window.enforce = enforce; window.importRoot = importRoot; window.install() } } }
     Component { id: progressPage; ProgressPage { disk: window.disk; beside: window.beside } }
-    Component { id: donePage; DonePage { onLeave: Qt.quit() } }
-    Component { id: failedPage; FailedPage { onLeave: Qt.quit(); onAgain: { stack.replace(null, welcomePage); window.showDisks() } } }
+    Component { id: donePage; DonePage { importRoot: window.importRoot; onLeave: Qt.quit() } }
+    Component {
+        id: failedPage
+        FailedPage {
+            onLeave: Qt.quit()
+            onAgain: {
+                if (Backend.failedDuring === Backend.Installing) {
+                    stack.replace(null, welcomePage)
+                    window.showDisks()
+                } else {
+                    stack.pop()
+                    if (Backend.failedDuring === Backend.Listing)
+                        Backend.refreshDisks()
+                    else
+                        Backend.findSystems()
+                }
+            }
+        }
+    }
 
     Connections {
         target: Backend
         function onStateChanged() {
             if (Backend.state === Backend.Done)
                 stack.replace(null, donePage)
-            else if (Backend.state === Backend.Failed)
-                stack.replace(null, failedPage)
+            else if (Backend.state === Backend.Failed) {
+                if (Backend.failedDuring === Backend.Installing)
+                    stack.replace(null, failedPage)
+                else
+                    stack.push(failedPage)
+            }
         }
     }
 
@@ -86,6 +109,11 @@ ApplicationWindow {
         repeat: true
         onTriggered: {
             const page = stack.currentItem
+            if (Backend.state === Backend.Failed && autotest.stage !== 7) {
+                autotest.report("page failed: " + page.title + ": " + Backend.error)
+                autotest.stage = 7
+                return
+            }
             switch (autotest.stage) {
             case 0:
                 autotest.report("page welcome")
@@ -112,6 +140,8 @@ ApplicationWindow {
                 autotest.stage = 3
                 break
             case 3:
+                if (Backend.state === Backend.Scanning)
+                    return
                 autotest.report("page confirm")
                 if (!window.beside)
                     page.understood = true
@@ -129,9 +159,7 @@ ApplicationWindow {
                 if (Backend.state === Backend.Done) {
                     autotest.report("page done")
                     autotest.stage = 6
-                } else if (Backend.state === Backend.Failed) {
-                    autotest.report("page failed: " + Backend.error)
-                    autotest.stage = 7
+
                 }
                 break
             case 6:

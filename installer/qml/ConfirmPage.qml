@@ -76,7 +76,7 @@ PageFrame {
     Text {
         Layout.fillWidth: true
         leftPadding: 34
-        text: qsTr("Programs that run with administrator rights are held to what their packages declare, and anything else they try is refused. Without this, joe Linux only records what it would have refused. This release is a beta: some programs may not work while enforcing.")
+        text: qsTr("Programs that run with administrator rights are held to what their packages declare, and anything else they try is refused. Without this, joe Linux only records what it would have refused. Some programs may not work while enforcing.")
         font.family: Theme.family
         font.pixelSize: Theme.smallSize
         wrapMode: Text.Wrap
@@ -118,16 +118,17 @@ PageFrame {
     ActionButton {
         visible: Backend.systems.length === 0
         text: qsTr("Look Again")
+        enabled: Backend.state === Backend.Idle
         onClicked: Backend.findSystems()
     }
 
     actions: [
-        ActionButton { text: qsTr("Back"); onClicked: page.back() },
+        ActionButton { text: qsTr("Back"); enabled: Backend.state === Backend.Idle; onClicked: page.back() },
         Item { Layout.fillWidth: true },
         ActionButton {
             text: page.beside ? qsTr("Install") : qsTr("Erase and Install")
             kind: page.beside ? "suggested" : "destructive"
-            enabled: page.beside || understood.checked
+            enabled: Backend.state === Backend.Idle && (page.beside || understood.checked)
             onClicked: page.proceed()
         }
     ]

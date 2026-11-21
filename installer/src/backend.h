@@ -22,6 +22,7 @@ class Backend : public QObject {
     QML_SINGLETON
     Q_PROPERTY(DiskModel *disks READ disks CONSTANT)
     Q_PROPERTY(State state READ state NOTIFY stateChanged)
+    Q_PROPERTY(State failedDuring READ failedDuring NOTIFY stateChanged)
     Q_PROPERTY(double progress READ progress NOTIFY progressChanged)
     Q_PROPERTY(QString step READ step NOTIFY progressChanged)
     Q_PROPERTY(QString log READ log NOTIFY logChanged)
@@ -36,13 +37,14 @@ class Backend : public QObject {
     Q_PROPERTY(QString screenshotDir READ screenshotDir CONSTANT)
 
 public:
-    enum class State { Idle, Listing, Installing, Done, Failed };
+    enum class State { Idle, Listing, Scanning, Installing, Done, Failed };
     Q_ENUM(State)
 
     explicit Backend(QObject *parent = nullptr);
 
     DiskModel *disks() { return &m_disks; }
     State state() const { return m_state; }
+    State failedDuring() const { return m_failedDuring; }
     double progress() const { return m_progress; }
     QString step() const { return m_step; }
     QString log() const { return m_log; }
@@ -77,6 +79,7 @@ signals:
     void systemsChanged();
 
 private:
+    QProcess *newProcess();
     void setState(State state, const QString &error = {});
     void appendLog(const QString &text);
     void handleLine(const QByteArray &line);
@@ -84,6 +87,7 @@ private:
 
     DiskModel m_disks;
     State m_state = State::Idle;
+    State m_failedDuring = State::Idle;
     double m_progress = 0;
     QString m_step;
     QString m_log;

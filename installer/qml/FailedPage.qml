@@ -7,20 +7,23 @@ PageFrame {
     signal leave()
     signal again()
 
-    title: qsTr("The installation didn't finish")
+    readonly property bool installing: Backend.failedDuring === Backend.Installing
+    title: installing ? qsTr("The installation didn't finish")
+        : Backend.failedDuring === Backend.Listing ? qsTr("Couldn't list the disks")
+        : qsTr("Couldn't look for accounts to import")
     body: Backend.error
 
     Text {
         Layout.fillWidth: true
         wrapMode: Text.Wrap
-        visible: Backend.log.length > 0
+        visible: page.installing && Backend.log.length > 0
         text: qsTr("The chosen disk may be partly written; no other disk was changed. What happened is below.")
         font.family: Theme.family
         font.pixelSize: Theme.bodySize
         color: Theme.ink
     }
     ScrollView {
-        visible: Backend.log.length > 0
+        visible: page.installing && Backend.log.length > 0
         Layout.fillWidth: true
         Layout.preferredHeight: 260
         clip: true
@@ -40,6 +43,6 @@ PageFrame {
     actions: [
         ActionButton { text: qsTr("Close"); onClicked: page.leave() },
         Item { Layout.fillWidth: true },
-        ActionButton { text: qsTr("Start Over"); kind: "suggested"; onClicked: page.again() }
+        ActionButton { text: page.installing ? qsTr("Start Over") : qsTr("Retry"); kind: "suggested"; onClicked: page.again() }
     ]
 }

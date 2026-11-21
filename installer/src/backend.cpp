@@ -25,7 +25,7 @@ Backend::Backend(QObject *parent)
 {
 }
 
-// The PRETTY_NAME of the system on the medium ("joe Linux 0.3 alpha 1").
+// The PRETTY_NAME of the system on the medium.
 QString Backend::systemName() const
 {
     QFile file(QStringLiteral("/usr/lib/os-release"));
@@ -41,6 +41,8 @@ QString Backend::systemName() const
 
 void Backend::setState(State state, const QString &error)
 {
+    if (state == State::Failed)
+        m_failedDuring = m_state;
     m_state = state;
     m_error = error;
     emit stateChanged();
@@ -54,12 +56,28 @@ void Backend::appendLog(const QString &text)
     emit logChanged();
 }
 
+// FailedToStart has no matching finished signal. Other errors (including
+// a crash) are handled by the process's finished handler.
+QProcess *Backend::newProcess()
+{
+    auto *process = new QProcess(this);
+    connect(process, &QProcess::errorOccurred, this, [this, process](QProcess::ProcessError error) {
+        if (error != QProcess::FailedToStart)
+            return;
+        if (m_install == process)
+            m_install = nullptr;
+        process->deleteLater();
+        setState(State::Failed, tr("Could not start %1. %2").arg(process->program(), process->errorString()));
+    });
+    return process;
+}
+
 void Backend::refreshDisks()
 {
-    if (m_state == State::Installing)
+    if (m_state != State::Idle && m_state != State::Failed)
         return;
     setState(State::Listing);
-    auto *process = new QProcess(this);
+    auto *process = newProcess();
     connect(process, &QProcess::finished, this, [this, process](int code, QProcess::ExitStatus status) {
         process->deleteLater();
         const QByteArray out = process->readAllStandardOutput();
@@ -69,7 +87,12 @@ void Backend::refreshDisks()
                                         .arg(QString::fromUtf8(err).trimmed()));
             return;
         }
-        m_disks.setDisks(QJsonDocument::fromJson(out).object().value(QLatin1String("disks")).toArray());
+        const QJsonValue disks = QJsonDocument::fromJson(out).object().value(QLatin1String("disks"));
+        if (!disks.isArray()) {
+            setState(State::Failed, tr("dave returned an invalid disk list."));
+            return;
+        }
+        m_disks.setDisks(disks.toArray());
         setState(State::Idle);
         emit disksListed();
     });
@@ -82,11 +105,18 @@ void Backend::refreshDisks()
 // is simply empty, and the page says how to have one listed.
 void Backend::findSystems()
 {
-    if (!QFile::exists(pour()))
+    if (m_state != State::Idle && m_state != State::Failed)
         return;
-    auto *process = new QProcess(this);
-    connect(process, &QProcess::finished, this, [this, process] {
+    setState(State::Scanning);
+    auto *process = newProcess();
+    connect(process, &QProcess::finished, this, [this, process](int code, QProcess::ExitStatus status) {
         process->deleteLater();
+        // pour scan exits 1 when it finds no mounted system.
+        if (status != QProcess::NormalExit || (code != 0 && code != 1)) {
+            setState(State::Failed, tr("pour could not scan for accounts. %1")
+                                        .arg(QString::fromUtf8(process->readAllStandardError()).trimmed()));
+            return;
+        }
         QVariantList found;
         const QList<QByteArray> lines = process->readAllStandardOutput().split('\n');
         for (const QByteArray &line : lines) {
@@ -104,13 +134,14 @@ void Backend::findSystems()
         }
         m_systems = found;
         emit systemsChanged();
+        setState(State::Idle);
     });
     process->start(pour(), {QStringLiteral("scan"), QStringLiteral("--json")});
 }
 
 void Backend::install(const QString &diskPath, bool beside, bool enforce, const QString &importRoot)
 {
-    if (m_state == State::Installing || m_install)
+    if (m_state != State::Idle || m_install)
         return;
     m_log.clear();
     m_pending.clear();
@@ -120,7 +151,7 @@ void Backend::install(const QString &diskPath, bool beside, bool enforce, const 
     emit logChanged();
     setState(State::Installing);
 
-    m_install = new QProcess(this);
+    m_install = newProcess();
     connect(m_install, &QProcess::readyReadStandardOutput, this, [this] {
         m_pending += m_install->readAllStandardOutput();
         qsizetype nl;

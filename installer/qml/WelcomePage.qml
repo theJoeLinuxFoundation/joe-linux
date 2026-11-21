@@ -7,7 +7,7 @@ PageFrame {
     signal leave()
 
     title: qsTr("Install %1").arg(Backend.systemName)
-    body: qsTr("joe Linux can be installed beside the system already on this computer, in free space on its disk, or take a whole disk. Nothing is changed until you confirm.\n\nThis is an alpha release, for trying out and testing. Keep copies of anything that matters to you.")
+    body: qsTr("joe Linux can be installed beside the system already on this computer, in free space on its disk, or take a whole disk. Nothing is changed until you confirm.\n\nKeep copies of anything that matters to you.")
 
     actions: [
         ActionButton { text: qsTr("Try joe Linux"); onClicked: page.leave() },

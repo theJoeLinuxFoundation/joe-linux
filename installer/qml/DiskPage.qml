@@ -201,12 +201,12 @@ PageFrame {
     }
 
     actions: [
-        ActionButton { text: qsTr("Back"); onClicked: page.back() },
+        ActionButton { text: qsTr("Back"); enabled: Backend.state === Backend.Idle; onClicked: page.back() },
         Item { Layout.fillWidth: true },
         ActionButton {
             text: qsTr("Continue")
             kind: "suggested"
-            enabled: page.chosen >= 0
+            enabled: Backend.state === Backend.Idle && page.chosen >= 0
             onClicked: page.proceed()
         }
     ]
