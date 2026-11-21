@@ -1,7 +1,7 @@
 .{
     .name = "openvpn",
     .version = "2.7.9",
-    .release = 1,
+    .release = 2,
     .description = "SSL/TLS VPN daemon and client",
     .license = "GPL-2.0-only WITH openvpn-openssl-exception",
     .sources = .{
@@ -11,4 +11,10 @@
     // netlink. libcap-ng keeps CAP_NET_ADMIN after dropping root.
     .depends = .{ "glibc", "openssl", "lzo", "lz4", "libcap-ng", "libnl", "linux-pam", "systemd" },
     .build_depends = .{"pkgconf"},
+    .operations = .{
+        // Both templates use sockets and configure the tunnel over netlink.
+        // A server can bind a low port. Both peers can lock key material
+        // in memory, enter a chroot and drop to the configured user.
+        .{ .programs = .{"usr/sbin/openvpn"}, .allow = .{ "net", "cap:net_admin", "cap:net_bind_service", "cap:ipc_lock", "cap:sys_chroot", "cap:setgid", "cap:setuid" } },
+    },
 }
