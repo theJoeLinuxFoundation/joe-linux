@@ -64,10 +64,14 @@ dave: $(DAVE)
 test:
 	$(NEOMAKE) test unit 'cli-*'
 
+MTOOLS := mtools-4.0.49
+MTOOLS_SHA256 := 6fe5193583d6e7c59da75e63d7234f76c0b07caf33b103894f46f66a871ffc9f
+
 build/host-tools/bin/mcopy:
 	mkdir -p build/src build/host-tools
-	cd build/src && curl -fsSLO https://ftp.gnu.org/gnu/mtools/mtools-4.0.49.tar.bz2
-	cd build/src && rm -rf mtools && mkdir mtools && tar -xf mtools-4.0.49.tar.bz2 -C mtools --strip-components=1
+	cd build/src && [ -e $(MTOOLS).tar.bz2 ] || curl -fsSLO https://ftp.gnu.org/gnu/mtools/$(MTOOLS).tar.bz2
+	cd build/src && echo "$(MTOOLS_SHA256)  $(MTOOLS).tar.bz2" | sha256sum -c --quiet
+	cd build/src && rm -rf mtools && mkdir mtools && tar -xf $(MTOOLS).tar.bz2 -C mtools --strip-components=1
 	cd build/src/mtools && ./configure --prefix=$(CURDIR)/build/host-tools --disable-floppyd && $(MAKE) && $(MAKE) install
 
 # What a live ISO is made with: its compressed root (SquashFS) and the ISO itself.
