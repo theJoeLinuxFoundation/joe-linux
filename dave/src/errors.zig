@@ -23,6 +23,7 @@ pub fn describe(err: anyerror) ?[]const u8 {
         error.ConnectionResetByPeer, error.EndOfStream, error.BrokenPipe, error.HttpConnectionClosing => "the connection was cut off",
         error.NoSpaceLeft, error.DiskQuota => "there is no space left on the disk",
         error.AccessDenied, error.PermissionDenied => "permission was denied",
+        error.InvalidOperation => "invalid operation declaration (see dave help pack for --allow)",
         error.ReadOnlyFileSystem => "the file system is read-only",
         error.FileNotFound => "it does not exist",
         error.NotDir => "a part of the path is not a directory",
@@ -65,7 +66,6 @@ test "errors in words" {
     try testing.expectEqualStrings("the connection was refused; is the repository's server running?", text(&buf, error.ConnectionRefused));
     try testing.expectEqualStrings("permission was denied", text(&buf, error.AccessDenied));
     try testing.expectEqualStrings("there is no host by that name; is this computer online?", text(&buf, error.UnknownHostName));
-    // The security module's vocabulary check is reported by name.
-    try testing.expectEqualStrings("InvalidOperation", text(&buf, error.InvalidOperation));
+    try testing.expectEqualStrings("invalid operation declaration (see dave help pack for --allow)", text(&buf, error.InvalidOperation));
     try testing.expect(describe(error.OutOfMemory) == null);
 }

@@ -162,7 +162,7 @@ pub const commands = [_]CommandInfo{
         \\With --check, dave only says what an upgrade would change. That needs
         \\no root.
         ,
-        .examples = &.{ "dave upgrade --check", "sudo dave upgrade --reboot" },
+        .examples = &.{ "dave upgrade --check", "doas dave upgrade --reboot" },
         .root_for = "preparing an upgrade",
         .root_note = "Preparing an upgrade needs root; --check and --dry-run do not.",
     },
@@ -273,7 +273,7 @@ pub const commands = [_]CommandInfo{
         \\it is unpinned; 'gc' deletes those that are no longer needed (dave also
         \\does this by itself).
         ,
-        .examples = &.{ "dave deployments", "sudo dave deployments pin 12" },
+        .examples = &.{ "dave deployments", "doas dave deployments pin 12" },
         .brief = "[list|pin|unpin|gc]",
         .operands = &.{ .{ .words = &.{ "list", "pin", "unpin", "gc" } }, .none },
         .root_for = "changing deployments",

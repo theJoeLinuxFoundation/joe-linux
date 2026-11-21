@@ -192,7 +192,7 @@ const App = struct {
             else => true,
         };
         if (!needed) return;
-        return app.fail("{s} needs root; run it with sudo: sudo dave {s}", .{ what, try ui.shellQuote(app.arena, app.argv) });
+        return app.fail("{s} needs root; run it with doas: doas dave {s}", .{ what, try ui.shellQuote(app.arena, app.argv) });
     }
 
     fn cmdHelp(app: *App, args: []const []const u8) !void {
@@ -873,7 +873,7 @@ const App = struct {
         _ = try app.showPlan(ctx, solution, ctx.world, &.{});
         if (app.publishedView(current)) |view| if (view.staged) |staged|
             return app.say("An upgrade is already prepared ({s}); it will be applied at shutdown.", .{staged.summary});
-        try app.say("Run '{s}dave upgrade' to prepare it.", .{if (root) "" else "sudo "});
+        try app.say("Run '{s}dave upgrade' to prepare it.", .{if (root) "" else "doas "});
     }
 
     // -- queries --------------------------------------------------------------
@@ -925,7 +925,7 @@ const App = struct {
         const newest = newestOffered(offered, name);
         if (here == null and newest == null) {
             if (offered.len == 0) return app.fail("{s} is not installed, and no repository index has been fetched to say whether it is available; " ++
-                "'sudo dave upgrade --check' fetches it", .{name});
+                "'doas dave upgrade --check' fetches it", .{name});
             return app.fail("no package named {s} is installed or available{s}", .{ name, try app.suggestPackage(name, offered, ctx.installed) });
         }
 
@@ -987,7 +987,7 @@ const App = struct {
         const refresh = app.canRefresh();
         const found = try app.candidates(ctx, refresh);
         if (!refresh and found.len == 0)
-            return app.fail("no repository index has been fetched yet; 'sudo dave search {s}' fetches it", .{try ui.shellQuote(app.arena, terms)});
+            return app.fail("no repository index has been fetched yet; 'doas dave search {s}' fetches it", .{try ui.shellQuote(app.arena, terms)});
         const matches = try query.search(app.arena, found, ctx.installed, terms);
         if (matches.len == 0) return app.fail("no package matches {s}", .{try ui.shellQuote(app.arena, terms)});
         var name_width: usize = 0;
@@ -1168,7 +1168,7 @@ const App = struct {
             const view = app.publishedView(current) orelse {
                 try app.say("Running deployment {d}.", .{current});
                 return app.say("Until dave-status.service has run at boot, only root can see the other deployments " ++
-                    "and any pending upgrade; 'sudo dave status' shows them.", .{});
+                    "and any pending upgrade; 'doas dave status' shows them.", .{});
             };
             return app.printStatus(current, view);
         }
@@ -1231,7 +1231,7 @@ const App = struct {
             if (linux.geteuid() != 0)
                 return app.printDeployments(app.publishedView(current) orelse
                     return app.fail("until dave-status.service has run at boot, only root can list the deployments; " ++
-                        "'sudo dave deployments' lists them", .{}));
+                        "'doas dave deployments' lists them", .{}));
             var sys = try app.openSystem(current);
             return app.printDeployments(try sys.overview());
         }
@@ -1341,7 +1341,7 @@ const App = struct {
             .default_allow = app.opts.allow.items,
         }, &diag) catch |e| {
             if (diag.message.len > 0) return app.fail("{s}", .{diag.message});
-            return app.fail("cannot build {s}: {t}", .{ args[0], e });
+            return app.failErr(e, "cannot build {s}", .{args[0]});
         };
         try app.say("{s}", .{file});
     }
@@ -1373,7 +1373,7 @@ const App = struct {
             .src = src,
             .out_dir = out_dir,
             .code_key = try app.codeKey(),
-        }) catch |e| return app.fail("cannot pack {s}: {t}", .{ args[0], e });
+        }) catch |e| return app.failErr(e, "cannot pack {s}", .{args[0]});
         try app.say("{s}/{s}", .{ out_path, file });
     }
 

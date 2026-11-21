@@ -186,8 +186,8 @@ cwd = "build/cli-test"
 env = ${cli_env}
 prelude = ${cli_prelude}
 steps = [
-  { run = '"$dave" install hello', exit = "nonzero", stream = "combined", contains = "installing packages needs root; run it with sudo: sudo dave install hello" },
-  { run = '"$dave" rollback', exit = "nonzero", stream = "combined", contains = "sudo dave rollback" },
+  { run = '"$dave" install hello', exit = "nonzero", stream = "combined", contains = "installing packages needs root; run it with doas: doas dave install hello" },
+  { run = '"$dave" rollback', exit = "nonzero", stream = "combined", contains = "doas dave rollback" },
 ]
 
 [tests.cli-impossible]
@@ -399,7 +399,7 @@ steps = [
 mkdir -p "$work/stage/invalid/usr/bin"
 printf 'invalid\n' > "$work/stage/invalid/usr/bin/invalid"
 "$dave" pack --name invalid --version 1.0-r1 --allow undeclared --out "$work/repo" "$work/stage/invalid"
-''', exit = "nonzero", stream = "combined", contains = "InvalidOperation", name = "an explicit undeclared operation is refused" },
+''', exit = "nonzero", stream = "combined", contains = "invalid operation declaration", name = "an explicit undeclared operation is refused" },
 ]
 
 [tests.cli-seal]

@@ -334,7 +334,7 @@ answered no.
 .B dave search image viewer
 Find a package.
 .TP
-.B sudo dave install loupe
+.B doas dave install loupe
 Install it now.
 .TP
 .B dave why zlib
@@ -343,10 +343,10 @@ Find out why something is installed.
 .B dave upgrade \-\-check
 See whether there is anything to upgrade.
 .TP
-.B sudo dave upgrade \-\-reboot
+.B doas dave upgrade \-\-reboot
 Prepare the upgrade and reboot into it.
 .TP
-.B sudo dave rollback
+.B doas dave rollback
 Go back to the system as it was before the last change, on the next boot.
 .SH SEE ALSO
 .BR systemd-boot (7),
