@@ -1,7 +1,7 @@
 .{
     .name = "valkey",
     .version = "9.1.3",
-    .release = 2,
+    .release = 3,
     .description = "Valkey, the Redis-compatible in-memory data structure server, with valkey-cli and Sentinel",
     .license = "BSD-3-Clause",
     .sources = .{
@@ -13,4 +13,9 @@
     // statically (see build.sh).
     .depends = .{ "glibc", "openssl", "systemd" },
     .build_depends = .{"pkgconf"},
+    .operations = .{
+        // Both units start as valkey with no capabilities. Sentinel is a
+        // symlink to the server, so the same seal covers both services.
+        .{ .programs = .{"usr/libexec/valkey-server"}, .allow = .{"none"} },
+    },
 }

@@ -68,6 +68,10 @@ EOF
     # matching one for Sentinel, which upstream does not provide. Neither
     # is enabled.
     install -d "$DESTDIR/usr/lib/systemd/system"
+    # The public executable also implements valkey-check-aof --fix. Its
+    # caller chooses which file to repair. Keep the units on their own seal.
+    install -Dm755 "$DESTDIR/usr/bin/valkey-server" "$DESTDIR/usr/libexec/valkey-server"
+    ln -s valkey-server "$DESTDIR/usr/libexec/valkey-sentinel"
     cat > "$DESTDIR/usr/lib/systemd/system/valkey.service" << "EOF"
 [Unit]
 Description=Valkey data structure server
@@ -77,7 +81,7 @@ After=network-online.target
 
 [Service]
 Type=notify
-ExecStart=/usr/bin/valkey-server /etc/valkey/valkey.conf --supervised systemd --daemonize no
+ExecStart=/usr/libexec/valkey-server /etc/valkey/valkey.conf --supervised systemd --daemonize no
 User=valkey
 Group=valkey
 WorkingDirectory=/var/lib/valkey
@@ -102,7 +106,7 @@ After=network-online.target
 
 [Service]
 Type=notify
-ExecStart=/usr/bin/valkey-sentinel /etc/valkey/sentinel.conf --supervised systemd --daemonize no
+ExecStart=/usr/libexec/valkey-sentinel /etc/valkey/sentinel.conf --supervised systemd --daemonize no
 User=valkey
 Group=valkey
 RuntimeDirectory=valkey-sentinel
