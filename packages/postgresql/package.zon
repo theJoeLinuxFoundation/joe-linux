@@ -1,7 +1,7 @@
 .{
     .name = "postgresql",
     .version = "18.7",
-    .release = 1,
+    .release = 2,
     .description = "PostgreSQL object-relational database server, client programs and libpq",
     .license = "PostgreSQL",
     .sources = .{
@@ -12,4 +12,9 @@
     .depends = .{ "glibc", "openssl", "icu", "libxml2", "libxslt", "linux-pam", "krb5", "lz4", "zstd", "zlib", "readline", "util-linux", "tzdata" },
     // The manual pages are made with xsltproc and the DocBook stylesheets.
     .build_depends = .{ "tzdata", "pkgconf", "perl", "bison", "flex", "gettext", "libxslt", "docbook-xml", "docbook-xsl-nons" },
+    .operations = .{
+        // systemd runs pg_ctl and its postgres children as postgres, with no
+        // capabilities. The server refuses to start as root.
+        .{ .programs = .{ "usr/bin/pg_ctl", "usr/bin/postgres" }, .allow = .{"none"} },
+    },
 }
