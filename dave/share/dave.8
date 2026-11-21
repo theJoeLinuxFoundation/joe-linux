@@ -109,7 +109,10 @@ Make a package of a directory
 .TP
 .BR repo " " index | audit
 .I dir
-Write and sign a repository's index, or audit its packages' seals.
+Write and sign a repository's index, or check seals and operation
+declarations in the newest release of each package. The audit checks seal
+metadata on shared libraries, too. Executable permissions alone do not
+make a .so or numerically versioned .so library an undeclared program.
 .TP
 .BR key " " generate | generate-code
 .I basename
@@ -264,6 +267,14 @@ with (pack).
 .TP
 .BI \-\-key " file"
 Sign the index with this secret key (repo index).
+.TP
+.BI \-\-baseline " file"
+For repo audit, omit findings already present in a saved audit report.
+Save standard output from
+.B dave repo audit
+as the baseline. Each finding matches by package name, path and reason
+across upgrades. Unreadable packages use their filename.
+An audit exits with status 1 when findings remain and 0 when none remain.
 .SH ASKING FIRST
 .B install
 and

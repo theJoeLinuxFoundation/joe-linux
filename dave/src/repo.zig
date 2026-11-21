@@ -19,6 +19,7 @@ const manifest_mod = @import("manifest.zig");
 const archive = @import("archive.zig");
 const db = @import("db.zig");
 const seal = @import("seal.zig");
+const Version = @import("solver/version.zig").Version;
 
 pub const index_name = "repo.zon";
 pub const signature_name = "repo.zon.sig";
@@ -199,90 +200,119 @@ pub fn writeIndex(gpa: Allocator, arena: Allocator, io: Io, dir: Io.Dir, secret_
     return entries.items.len;
 }
 
-const AuditProblem = struct {
-    filename: []const u8,
-    path: []const u8,
-    reason: []const u8,
-};
-
-fn auditProblemLessThan(_: void, a: AuditProblem, b: AuditProblem) bool {
-    switch (std.mem.order(u8, a.filename, b.filename)) {
-        .lt => return true,
-        .gt => return false,
-        .eq => {},
+// The manifest describes metadata, not ELF headers. Recognize the usual
+// library names, leaving set-id and file-capability checks independent.
+fn sharedObject(path: []const u8) bool {
+    const name = std.fs.path.basename(path);
+    if (std.mem.endsWith(u8, name, ".so")) return true;
+    const pos = std.mem.lastIndexOf(u8, name, ".so.") orelse return false;
+    var parts = std.mem.splitScalar(u8, name[pos + 4 ..], '.');
+    while (parts.next()) |part| {
+        if (part.len == 0) return false;
+        for (part) |c| if (!std.ascii.isDigit(c)) return false;
     }
-    switch (std.mem.order(u8, a.path, b.path)) {
-        .lt => return true,
-        .gt => return false,
-        .eq => {},
-    }
-    return std.mem.order(u8, a.reason, b.reason) == .lt;
+    return true;
 }
 
-/// Checks package seal metadata and operation declarations without verifying
-/// signatures, for which no public key is available here.
-pub fn audit(gpa: Allocator, arena: Allocator, io: Io, dir: Io.Dir, out: *Io.Writer) !usize {
-    var problems: std.ArrayList(AuditProblem) = .empty;
+const Findings = struct {
+    lines: std.ArrayList([]const u8) = .empty,
+
+    fn add(self: *Findings, arena: Allocator, name: []const u8, path: []const u8, reason: []const u8) !void {
+        try self.lines.append(arena, try std.fmt.allocPrint(arena, "{s}: {s}: {s}", .{ name, path, reason }));
+    }
+};
+
+fn auditManifest(m: manifest_mod.Manifest, scratch: Allocator, arena: Allocator, findings: *Findings) !void {
+    // Validate even unmatched and shadowed declarations.
+    var operations_valid = true;
+    for (m.operations) |declaration| {
+        _ = seal.operationsText(scratch, &.{.{ .allow = declaration.allow }}, "") catch |err| switch (err) {
+            error.OutOfMemory => return error.OutOfMemory,
+            error.InvalidOperation => {
+                operations_valid = false;
+                const path = if (declaration.programs.len > 0) declaration.programs[0] else "-";
+                try findings.add(arena, m.name, path, "invalid operations");
+            },
+        };
+    }
+    for (m.files) |f| {
+        if (f.kind != .file or f.config) continue;
+        if (f.seal == null and f.verity == null) {
+            try findings.add(arena, m.name, f.path, "not sealed");
+        } else if (f.seal == null or f.verity == null) {
+            try findings.add(arena, m.name, f.path, "incomplete seal");
+        } else if (seal.parseSignature(f.seal.?) == null or seal.parseDigest(f.verity.?) == null) {
+            try findings.add(arena, m.name, f.path, "malformed seal");
+        }
+
+        const privileged = (f.mode & 0o111 != 0 and !sharedObject(f.path)) or (f.mode & 0o6000 != 0) or f.caps != null;
+        if (!operations_valid or !privileged) continue;
+        const ops = try seal.operationsText(scratch, m.operations, f.path);
+        if (std.mem.eql(u8, ops, seal.undeclared))
+            try findings.add(arena, m.name, f.path, "undeclared privileged program");
+    }
+}
+
+/// Report the latest releases' seal metadata and declarations. Signatures
+/// cannot be verified here without a trusted public key. Baselines are saved
+/// audit output: only exact finding lines match, across package upgrades.
+pub fn audit(gpa: Allocator, arena: Allocator, io: Io, dir: Io.Dir, baseline: []const u8, out: *Io.Writer) !usize {
+    var known: std.StringHashMapUnmanaged(void) = .empty;
+    var lines = std.mem.tokenizeAny(u8, baseline, "\r\n");
+    while (lines.next()) |line| try known.put(arena, line, {});
+
+    const Release = struct { version: Version, findings: Findings = .{} };
+    var latest: std.StringHashMapUnmanaged(Release) = .empty;
+    var report: Findings = .{};
     var it = dir.iterate();
     while (try it.next(io)) |entry| {
         if (entry.kind != .file or !std.mem.endsWith(u8, entry.name, ".dave")) continue;
-        const filename = try arena.dupe(u8, entry.name);
-        const m = archive.readManifestOf(gpa, arena, io, dir, filename) catch |err| switch (err) {
+        var package_arena = std.heap.ArenaAllocator.init(gpa);
+        defer package_arena.deinit();
+        const scratch = package_arena.allocator();
+        const m = archive.readManifestOf(gpa, scratch, io, dir, entry.name) catch |err| switch (err) {
             error.OutOfMemory => return error.OutOfMemory,
             else => {
-                try problems.append(arena, .{
-                    .filename = filename,
-                    .path = "-",
-                    .reason = try std.fmt.allocPrint(arena, "unreadable package ({t})", .{err}),
-                });
+                try report.add(arena, entry.name, "-", try std.fmt.allocPrint(scratch, "unreadable package ({t})", .{err}));
                 continue;
             },
         };
-        // Validate every entry, including unmatched and shadowed declarations
-        // that no installed file happens to select.
-        var operations_valid = true;
-        for (m.operations) |declaration| {
-            _ = seal.operationsText(arena, &.{.{ .allow = declaration.allow }}, "") catch |err| switch (err) {
-                error.OutOfMemory => return error.OutOfMemory,
-                error.InvalidOperation => {
-                    operations_valid = false;
-                    try problems.append(arena, .{
-                        .filename = filename,
-                        .path = if (declaration.programs.len > 0) declaration.programs[0] else "-",
-                        .reason = "invalid operations",
-                    });
-                },
-            };
-        }
-        for (m.files) |f| {
-            if (f.kind != .file or f.config) continue;
-            if (f.seal == null and f.verity == null) {
-                try problems.append(arena, .{ .filename = filename, .path = f.path, .reason = "not sealed" });
-            } else if (f.seal == null or f.verity == null) {
-                try problems.append(arena, .{ .filename = filename, .path = f.path, .reason = "incomplete seal" });
-            } else if (seal.parseSignature(f.seal.?) == null or seal.parseDigest(f.verity.?) == null) {
-                try problems.append(arena, .{ .filename = filename, .path = f.path, .reason = "malformed seal" });
-            }
-
-            if (!operations_valid) continue;
-            const ops = seal.operationsText(arena, m.operations, f.path) catch |err| switch (err) {
-                error.OutOfMemory => return error.OutOfMemory,
-                error.InvalidOperation => {
-                    try problems.append(arena, .{ .filename = filename, .path = f.path, .reason = "invalid operations" });
+        var v = Version.parse(m.version) catch {
+            try report.add(arena, entry.name, "-", "invalid package version");
+            continue;
+        };
+        const release = try latest.getOrPut(arena, m.name);
+        if (release.found_existing) {
+            switch (v.order(release.value_ptr.version)) {
+                .lt => continue,
+                .eq => {
+                    // Repositories may carry the same release for several architectures.
+                    try auditManifest(m, scratch, arena, &release.value_ptr.findings);
                     continue;
                 },
-            };
-            const privileged = (f.mode & 0o111 != 0) or (f.mode & 0o6000 != 0) or f.caps != null;
-            if (privileged and std.mem.eql(u8, ops, seal.undeclared)) {
-                try problems.append(arena, .{ .filename = filename, .path = f.path, .reason = "undeclared privileged program" });
+                .gt => {},
             }
+        } else {
+            release.key_ptr.* = try arena.dupe(u8, m.name);
         }
+        v.upstream = try arena.dupe(u8, v.upstream);
+        release.value_ptr.* = .{ .version = v };
+        try auditManifest(m, scratch, arena, &release.value_ptr.findings);
     }
-    std.mem.sort(AuditProblem, problems.items, {}, auditProblemLessThan);
-    for (problems.items) |problem| {
-        try out.print("{s}: {s}: {s}\n", .{ problem.filename, problem.path, problem.reason });
+    var releases = latest.valueIterator();
+    while (releases.next()) |release| try report.lines.appendSlice(arena, release.findings.lines.items);
+    std.mem.sort([]const u8, report.lines.items, {}, struct {
+        fn lessThan(_: void, a: []const u8, b: []const u8) bool {
+            return std.mem.order(u8, a, b) == .lt;
+        }
+    }.lessThan);
+    var count: usize = 0;
+    for (report.lines.items) |line| {
+        if (known.contains(line)) continue;
+        try out.print("{s}\n", .{line});
+        count += 1;
     }
-    return problems.items.len;
+    return count;
 }
 
 // ---------------------------------------------------------------------------
@@ -498,7 +528,7 @@ test "audit accepts sealed declarations and finds undeclared programs" {
         .code_key = key,
     });
     var clean_report: Io.Writer.Allocating = .init(arena);
-    try testing.expectEqual(@as(usize, 0), try audit(testing.allocator, arena, io, tmp.dir, &clean_report.writer));
+    try testing.expectEqual(@as(usize, 0), try audit(testing.allocator, arena, io, tmp.dir, "", &clean_report.writer));
     try testing.expectEqualStrings("", clean_report.written());
 
     try tmp.dir.createDirPath(io, "undeclared-stage");
@@ -507,16 +537,62 @@ test "audit accepts sealed declarations and finds undeclared programs" {
     try undeclared_stage.writeFile(io, .{ .sub_path = "program", .data = "#!/bin/sh\n" });
     try undeclared_stage.setFilePermissions(io, "program", .fromMode(0o755), .{});
     try undeclared_stage.writeFile(io, .{ .sub_path = "data", .data = "not a program\n" });
-    const name = try archive.pack(arena, io, .{
+    _ = try archive.pack(arena, io, .{
         .meta = .{ .name = "undeclared", .version = "1-r1" },
         .src = undeclared_stage,
         .out_dir = tmp.dir,
         .code_key = key,
     });
     var report: Io.Writer.Allocating = .init(arena);
-    try testing.expectEqual(@as(usize, 1), try audit(testing.allocator, arena, io, tmp.dir, &report.writer));
-    const expected = try std.fmt.allocPrint(arena, "{s}: program: undeclared privileged program\n", .{name});
+    try testing.expectEqual(@as(usize, 1), try audit(testing.allocator, arena, io, tmp.dir, "", &report.writer));
+    const expected = "undeclared: program: undeclared privileged program\n";
     try testing.expectEqualStrings(expected, report.written());
+}
+
+test "audit checks the latest release and keeps seal and privilege checks on libraries" {
+    const io = testing.io;
+    var arena_state: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    var tmp = testing.tmpDir(.{ .iterate = true });
+    defer tmp.cleanup();
+
+    // Use manifest identities even when filenames sort in the opposite order.
+    for ([_][]const u8{ "1.9-r20", "1.10-r2" }, 0..) |version, i| {
+        try writeAuditTestPackage(arena, io, tmp.dir, if (i == 0) "z.dave" else "y.dave", .{
+            .name = "tool",
+            .version = version,
+            .files = &.{.{ .path = "obsolete" }},
+        });
+    }
+    try writeAuditTestPackage(arena, io, tmp.dir, "a.dave", .{
+        .name = "tool",
+        .version = "1.10-r10",
+        .files = &.{
+            .{ .path = "lib.so", .mode = 0o755 },
+            .{ .path = "lib.so.1.2", .mode = 0o755 },
+            .{ .path = "setid.so", .mode = 0o4755 },
+            .{ .path = "cap.so.1", .caps = "01" },
+            .{ .path = "lib.so.d/program", .mode = 0o755 },
+            .{ .path = "tool.so.sh", .mode = 0o755 },
+        },
+    });
+    const baseline = "tool: lib.so: not sealed\r\n" ++
+        "tool: tool.so.sh: not sealed\n" ++
+        "2 security problem(s) found.\n";
+    var report: Io.Writer.Allocating = .init(arena);
+    try testing.expectEqual(@as(usize, 8), try audit(testing.allocator, arena, io, tmp.dir, baseline, &report.writer));
+    try testing.expectEqualStrings(
+        "tool: cap.so.1: not sealed\n" ++
+            "tool: cap.so.1: undeclared privileged program\n" ++
+            "tool: lib.so.1.2: not sealed\n" ++
+            "tool: lib.so.d/program: not sealed\n" ++
+            "tool: lib.so.d/program: undeclared privileged program\n" ++
+            "tool: setid.so: not sealed\n" ++
+            "tool: setid.so: undeclared privileged program\n" ++
+            "tool: tool.so.sh: undeclared privileged program\n",
+        report.written(),
+    );
 }
 
 test "audit detects absent and malformed seals and invalid operations" {
@@ -531,7 +607,7 @@ test "audit detects absent and malformed seals and invalid operations" {
     var stage = try tmp.dir.openDir(io, "unsigned-stage", .{ .iterate = true });
     defer stage.close(io);
     try stage.writeFile(io, .{ .sub_path = "data", .data = "unsigned\n" });
-    const unsigned_name = try archive.pack(arena, io, .{
+    _ = try archive.pack(arena, io, .{
         .meta = .{ .name = "unsigned", .version = "1-r1", .operations = &.{.{ .allow = &.{"none"} }} },
         .src = stage,
         .out_dir = tmp.dir,
@@ -559,15 +635,11 @@ test "audit detects absent and malformed seals and invalid operations" {
     });
 
     var report: Io.Writer.Allocating = .init(arena);
-    try testing.expectEqual(@as(usize, 4), try audit(testing.allocator, arena, io, tmp.dir, &report.writer));
-    const expected = try std.fmt.allocPrint(
-        arena,
-        "invalid.dave: -: invalid operations\n" ++
-            "malformed.dave: bad: malformed seal\n" ++
-            "reserved.dave: not-installed: invalid operations\n" ++
-            "{s}: data: not sealed\n",
-        .{unsigned_name},
-    );
+    try testing.expectEqual(@as(usize, 4), try audit(testing.allocator, arena, io, tmp.dir, "", &report.writer));
+    const expected = "invalid: -: invalid operations\n" ++
+        "malformed: bad: malformed seal\n" ++
+        "reserved: not-installed: invalid operations\n" ++
+        "unsigned: data: not sealed\n";
     try testing.expectEqualStrings(expected, report.written());
 }
 

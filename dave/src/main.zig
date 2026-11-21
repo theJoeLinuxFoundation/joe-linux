@@ -1382,15 +1382,24 @@ const App = struct {
             return app.fail("usage: dave repo index|audit <dir>", .{});
         const dir = try app.openDir(args[1]);
         if (std.mem.eql(u8, args[0], "audit")) {
-            const problems = repo.audit(app.gpa, app.arena, app.io, dir, app.out) catch |e|
+            const baseline = if (app.opts.baseline) |path|
+                Io.Dir.cwd().readFileAlloc(app.io, path, app.arena, .limited(64 * 1024 * 1024)) catch |e|
+                    return app.failErr(e, "cannot read baseline {s}", .{path})
+            else
+                "";
+            const problems = repo.audit(app.gpa, app.arena, app.io, dir, baseline, app.out) catch |e|
                 return app.fail("cannot audit {s}: {t}", .{ args[1], e });
             if (problems > 0) {
                 try app.say("{d} security problem(s) found.", .{problems});
                 return error.Reported;
             }
-            try app.say("No seal or declaration problems found.", .{});
+            if (app.opts.baseline != null)
+                try app.say("No new seal or declaration problems found.", .{})
+            else
+                try app.say("No seal or declaration problems found.", .{});
             return;
         }
+        if (app.opts.baseline != null) return app.fail("--baseline is for repo audit", .{});
         const secret: ?[]const u8 = if (app.opts.key) |path|
             app.readAbsolute(path) orelse return app.fail("cannot read key {s}", .{path})
         else

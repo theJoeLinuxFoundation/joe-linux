@@ -375,6 +375,16 @@ env = ${cli_env}
 prelude = ${cli_prelude}
 steps = [
   { run = '"$dave" repo audit "$work/repo"', exit = "nonzero", stream = "combined", contains = "not sealed" },
+  { run = 'make_pkg audit-fixture 1-r1 usr/bin/known old && "$dave" repo audit "$work/repo" > baseline', exit = 1 },
+  { run = '"$dave" repo audit "$work/repo" --baseline baseline', equals = "No new seal or declaration problems found." },
+  { run = '''
+mkdir -p stage/audit-fixture-1-r2/usr/bin
+touch stage/audit-fixture-1-r2/usr/bin/known
+make_pkg audit-fixture 1-r2 usr/bin/new new
+"$dave" repo audit "$work/repo" --baseline baseline
+''', exit = 1, equals = "audit-fixture: usr/bin/new: not sealed\n1 security problem(s) found.", name = "a new release reports just its new finding" },
+  { run = '"$dave" repo audit "$work/repo" --baseline absent', exit = 1, stream = "combined", contains = "cannot read baseline absent" },
+  { run = '"$dave" repo index "$work/repo" --baseline baseline', exit = 1, stream = "combined", contains = "--baseline is for repo audit" },
 ]
 
 [tests.cli-undeclared]

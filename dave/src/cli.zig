@@ -311,8 +311,8 @@ pub const commands = [_]CommandInfo{
         .summary = "Index and sign a repository, or audit it",
         .about =
         \\'index' writes repo.zon for the packages in a directory, and signs it
-        \\with --key. 'audit' checks every package's seals and operation
-        \\declarations.
+        \\with --key. 'audit' checks the latest release of each package for seal
+        \\and declaration problems. --baseline FILE reports only new findings.
         ,
         .operands = &.{ .{ .words = &.{ "index", "audit" } }, .dirs },
     },
@@ -471,6 +471,7 @@ pub const options = [_]OptionSpec{
     .{ .long = "license", .value = "SPDX", .help = "The package's licence", .commands = &.{.pack}, .field = "license" },
     .{ .long = "depends", .value = "DEP", .help = "A dependency, as in 'glibc >=2.44'", .commands = &.{.pack}, .field = "depends" },
     .{ .long = "conflicts", .value = "DEP", .help = "A package it cannot be installed with", .commands = &.{.pack}, .field = "conflicts" },
+    .{ .long = "baseline", .value = "FILE", .help = "Omit findings in a saved audit report", .commands = &.{.repo}, .field = "baseline", .complete = .files },
     .{ .long = "key", .value = "FILE", .help = "Sign the index with this secret key", .commands = &.{.repo}, .field = "key", .complete = .files },
 };
 
@@ -506,6 +507,7 @@ pub const Options = struct {
     description: []const u8 = "",
     license: []const u8 = "",
     out: ?[]const u8 = null,
+    baseline: ?[]const u8 = null,
     key: ?[]const u8 = null,
     code_key: ?[]const u8 = null,
     allow: std.ArrayList([]const u8) = .empty,
