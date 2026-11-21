@@ -181,7 +181,7 @@ done
   { run = 'as_user "dave search hello"', matches = '^hello\s+2\.0-r1\b' },
   { run = 'as_user "dave upgrade --check"', matches = '^\s+hello\s+1\.0-r1 -> 2\.0-r1', contains = "An upgrade is already prepared" },
   # Refused before anything is touched, saying how to do it.
-  { run = 'as_user "dave install moo 2>&1"', exit = "any", contains = "installing packages needs root; run it with sudo: sudo dave install moo" },
+  { run = 'as_user "dave install moo 2>&1"', exit = 1, contains = "installing packages needs root; run it with doas: doas dave install moo" },
   { run = '''as_user 'ls /run/dave/top >/dev/null 2>&1; echo $?' ''', matches = '^[1-9]', name = "a user cannot list the top level" },
   { run = 'stat -c %a /run/dave/top', equals = "700" },
   { run = 'findmnt -no OPTIONS /run/dave/top', contains = "nosuid" },
