@@ -1,7 +1,7 @@
 .{
     .name = "chrony",
     .version = "4.9",
-    .release = 1,
+    .release = 2,
     .description = "NTP client and server that keeps the clock accurate on intermittent connections",
     .license = "GPL-2.0-only",
     .sources = .{
@@ -9,4 +9,13 @@
     },
     .depends = .{ "glibc", "libcap", "nettle", "gnutls", "libseccomp" },
     .build_depends = .{ "pkgconf", "bison" },
+    .operations = .{
+        // chronyd opens NTP sockets, sets up chrony's directories and
+        // drops to that account. It retains clock control and writes its
+        // drift estimate, NTS state and measurement logs.
+        .{ .programs = .{"usr/sbin/chronyd"}, .allow = .{ "net", "cap:net_bind_service", "cap:sys_time", "cap:chown", "cap:dac_override", "cap:dac_read_search", "cap:setgid", "cap:setuid", "write:/var/lib/chrony", "write:/var/log/chrony" } },
+        // chrony-wait queries over UDP. Root's local control commands
+        // must also reach the Unix socket in chrony's runtime directory.
+        .{ .programs = .{"usr/bin/chronyc"}, .allow = .{ "net", "cap:dac_override", "cap:dac_read_search" } },
+    },
 }
