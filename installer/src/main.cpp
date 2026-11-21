@@ -1,17 +1,22 @@
 // joe Linux's installer. See README.md in this directory.
 #include <QCommandLineParser>
 #include <QGuiApplication>
+#include <QLocale>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
 #include <QQuickWindow>
+#include <QTranslator>
 
 #include "backend.h"
 
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
+    QTranslator translator;
+    if (translator.load(QLocale(), QStringLiteral("joe-installer"), QStringLiteral("_"), QStringLiteral(":/i18n")))
+        app.installTranslator(&translator);
     QGuiApplication::setApplicationName(QStringLiteral("joe-installer"));
-    QGuiApplication::setApplicationDisplayName(QStringLiteral("Install joe Linux"));
+    QGuiApplication::setApplicationDisplayName(QCoreApplication::translate("Installer", "Install joe Linux"));
     QGuiApplication::setDesktopFileName(QStringLiteral("org.joelinux.Installer"));
 
     QCommandLineParser parser;

@@ -1678,7 +1678,11 @@ const App = struct {
     fn listDisks(app: *App) !void {
         const disks = try app.findDisks();
         if (app.events) |w| {
-            std.json.Stringify.value(.{ .disks = disks }, .{}, w) catch {};
+            std.json.Stringify.value(.{
+                .disks = disks,
+                .min_disk_size = install_system.min_disk_size,
+                .min_beside_size = provision.min_beside_size,
+            }, .{}, w) catch {};
             w.writeByte('\n') catch {};
             return;
         }

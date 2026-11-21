@@ -8,7 +8,8 @@ opened automatically by the joe-live package.
   whether each can be erased (`usable`, `reason`), its partitions with where
   they lie (`partitions`: `start`, `size`, `kind`), and whether joe fits in
   its free space beside what is there (`beside`: `possible`, `reason`,
-  `start`, `size`, `systems`).
+  `start`, `size`, `systems`). The top-level `min_disk_size` and
+  `min_beside_size` give the required whole-disk and free-space sizes in bytes.
 - `pour scan --json` (as the live user) finds the Linux systems mounted on
   the computer, whose accounts could be brought over: `{"event":"system",
   "device":...,"root":...,"name":...}` lines. The live system and the
@@ -38,3 +39,12 @@ uses it.
 
 Built by packages/joe-installer, whose build copies this directory into the
 recipe (bootstrap/build-packages.sh).
+
+## Translations
+
+The installer uses the session's UI language and falls back to its English
+source strings. From this directory, create a Qt Linguist catalog with
+`mkdir -p i18n` and `lupdate src qml -ts i18n/joe-installer_LANG.ts`,
+replacing `LANG` with the locale code. CMake compiles and embeds the
+catalogs. On a configured build, the `update_translations` target refreshes
+their source strings.

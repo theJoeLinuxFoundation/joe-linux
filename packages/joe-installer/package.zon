@@ -1,7 +1,7 @@
 .{
     .name = "joe-installer",
     .version = "0.1",
-    .release = 6,
+    .release = 7,
     .description = "The graphical installer of joe Linux's installation medium",
     .license = "MIT",
     // Only the live medium has it (joe-live); nothing builds against it.

@@ -214,6 +214,7 @@ EOF
 chmod +x disk-tools/lsblk
 PATH="$work/disk-tools:$PATH" "$dave" install-system --list
 ''', equals = "/dev/fixture  8 GB  Test drive  cannot be erased: it is smaller than 20 GB" },
+  { run = 'PATH="$work/disk-tools:$PATH" "$dave" install-system --list --json', contains = ['"min_disk_size":20000000000', '"min_beside_size":22000000000'] },
   { run = '"${D[@]}" deployments pin 1', exit = 1, stream = "combined", contains = "only applies to a running joe Linux system" },
   { run = '"${D[@]}" deployments unpin 1', exit = 1, stream = "combined", contains = "only applies to a running joe Linux system" },
 ]

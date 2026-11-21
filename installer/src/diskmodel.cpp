@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#include <QJsonObject>
+#include <QJsonArray>
 
 int DiskModel::rowCount(const QModelIndex &parent) const
 {
@@ -14,24 +14,24 @@ QString DiskModel::sizeText(qint64 bytes)
 {
     const double gb = double(bytes) / 1e9;
     if (gb >= 1000)
-        return QStringLiteral("%1 TB").arg(gb / 1000, 0, 'f', gb >= 10000 ? 0 : 1);
+        return tr("%1 TB").arg(gb / 1000, 0, 'f', gb >= 10000 ? 0 : 1);
     if (gb >= 10)
-        return QStringLiteral("%1 GB").arg(qRound(gb));
-    return QStringLiteral("%1 GB").arg(gb, 0, 'f', 1);
+        return tr("%1 GB").arg(qRound(gb));
+    return tr("%1 GB").arg(gb, 0, 'f', 1);
 }
 
-static QString transportText(const QString &tran, bool removable)
+QString DiskModel::transportText(const QString &tran, bool removable)
 {
     if (tran == QLatin1String("nvme"))
-        return QStringLiteral("NVMe");
+        return tr("NVMe");
     if (tran == QLatin1String("sata") || tran == QLatin1String("ata"))
-        return QStringLiteral("SATA");
+        return tr("SATA");
     if (tran == QLatin1String("usb"))
-        return QStringLiteral("USB");
+        return tr("USB");
     if (tran == QLatin1String("mmc"))
-        return QStringLiteral("Memory card");
+        return tr("Memory card");
     if (tran.isEmpty())
-        return removable ? QStringLiteral("removable") : QString();
+        return removable ? tr("removable") : QString();
     return tran.toUpper();
 }
 
@@ -94,9 +94,16 @@ QHash<int, QByteArray> DiskModel::roleNames() const
     };
 }
 
-void DiskModel::setDisks(const QJsonArray &disks)
+void DiskModel::setDisks(const QJsonObject &listing)
 {
     beginResetModel();
+    const auto limitText = [&listing](QLatin1String key) {
+        const qint64 bytes = listing.value(key).toInteger();
+        return bytes > 0 ? sizeText(bytes) : QString();
+    };
+    m_minimumDiskSizeText = limitText(QLatin1String("min_disk_size"));
+    m_minimumBesideSizeText = limitText(QLatin1String("min_beside_size"));
+    const QJsonArray disks = listing.value(QLatin1String("disks")).toArray();
     m_disks.clear();
     for (const QJsonValue &v : disks) {
         const QJsonObject o = v.toObject();
@@ -115,8 +122,8 @@ void DiskModel::setDisks(const QJsonArray &disks)
             const QString kind = po.value(QLatin1String("kind")).toString();
             QString label = po.value(QLatin1String("label")).toString();
             if (label.isEmpty())
-                label = kind == QLatin1String("windows") ? QStringLiteral("Windows")
-                      : kind == QLatin1String("esp")     ? QStringLiteral("EFI")
+                label = kind == QLatin1String("windows") ? tr("Windows")
+                      : kind == QLatin1String("esp")     ? tr("EFI")
                                                          : po.value(QLatin1String("fstype")).toString();
             if (size > 0) {
                 d.layout << QVariantMap{
@@ -145,8 +152,8 @@ void DiskModel::setDisks(const QJsonArray &disks)
             const QString label = co.value(QLatin1String("label")).toString();
             const QString fstype = co.value(QLatin1String("fstype")).toString();
             const QString size = sizeText(qint64(co.value(QLatin1String("size")).toDouble()));
-            d.contents << (label.isEmpty() ? QStringLiteral("an unnamed %1 partition (%2)").arg(fstype, size)
-                                           : QStringLiteral("%1 (%2, %3)").arg(label, fstype, size));
+            d.contents << (label.isEmpty() ? tr("an unnamed %1 partition (%2)").arg(fstype, size)
+                                           : tr("%1 (%2, %3)").arg(label, fstype, size));
             if (d.size > 0) {
                 d.segments << QVariantMap{
                     {QStringLiteral("label"), label.isEmpty() ? fstype : label},

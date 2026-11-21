@@ -291,7 +291,7 @@ pub fn parseDisks(arena: Allocator, lsblk_json: []const u8, links: []const Link,
             disk.reason = "it is read-only";
         } else if (size < min_disk_size) {
             disk.usable = false;
-            disk.reason = "it is smaller than 20 GB";
+            disk.reason = std.fmt.comptimePrint("it is smaller than {d} GB", .{@divExact(min_disk_size, 1_000_000_000)});
         } else if (in_use) |point| {
             disk.usable = false;
             disk.reason = try std.fmt.allocPrint(arena, "part of it is in use ({s})", .{point});
@@ -382,7 +382,7 @@ fn besideOf(arena: Allocator, disk: Disk) !Beside {
     } else if (b.esp.len == 0) {
         b.reason = "it has no EFI system partition to share";
     } else if (b.size < provision.min_beside_size) {
-        b.reason = "it has no free space of 22 GB or more";
+        b.reason = std.fmt.comptimePrint("it has no free space of {d} GB or more", .{@divExact(provision.min_beside_size, 1_000_000_000)});
     } else {
         b.possible = true;
     }

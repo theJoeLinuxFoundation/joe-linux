@@ -87,12 +87,12 @@ void Backend::refreshDisks()
                                         .arg(QString::fromUtf8(err).trimmed()));
             return;
         }
-        const QJsonValue disks = QJsonDocument::fromJson(out).object().value(QLatin1String("disks"));
-        if (!disks.isArray()) {
+        const QJsonObject listing = QJsonDocument::fromJson(out).object();
+        if (!listing.value(QLatin1String("disks")).isArray()) {
             setState(State::Failed, tr("dave returned an invalid disk list."));
             return;
         }
-        m_disks.setDisks(disks.toArray());
+        m_disks.setDisks(listing);
         setState(State::Idle);
         emit disksListed();
     });

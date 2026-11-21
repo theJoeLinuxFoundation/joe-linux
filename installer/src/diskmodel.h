@@ -2,7 +2,7 @@
 #pragma once
 
 #include <QAbstractListModel>
-#include <QJsonArray>
+#include <QJsonObject>
 #include <QList>
 #include <QString>
 #include <QtQml/qqmlregistration.h>
@@ -32,6 +32,8 @@ class DiskModel : public QAbstractListModel {
     Q_OBJECT
     QML_ELEMENT
     QML_UNCREATABLE("provided by Backend")
+    Q_PROPERTY(QString minimumDiskSizeText READ minimumDiskSizeText NOTIFY countChanged)
+    Q_PROPERTY(QString minimumBesideSizeText READ minimumBesideSizeText NOTIFY countChanged)
     Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
     Q_PROPERTY(int usableCount READ usableCount NOTIFY countChanged)
 
@@ -63,16 +65,21 @@ public:
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
 
-    void setDisks(const QJsonArray &disks);
+    void setDisks(const QJsonObject &listing);
+    QString minimumDiskSizeText() const { return m_minimumDiskSizeText; }
+    QString minimumBesideSizeText() const { return m_minimumBesideSizeText; }
     int usableCount() const;
     Q_INVOKABLE int indexOfPath(const QString &path) const;
     Q_INVOKABLE QVariantMap get(int row) const;
 
+    static QString transportText(const QString &tran, bool removable);
     static QString sizeText(qint64 bytes);
 
 signals:
     void countChanged();
 
 private:
+    QString m_minimumDiskSizeText;
+    QString m_minimumBesideSizeText;
     QList<Disk> m_disks;
 };

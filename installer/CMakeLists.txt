@@ -41,6 +41,13 @@ qt_add_qml_module(joe-installer
         qml/FailedPage.qml
 )
 
+# Embed any catalogs supplied by translators. English is the source language.
+file(GLOB catalogs CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/i18n/joe-installer_*.ts")
+if(catalogs)
+    find_package(Qt6 REQUIRED COMPONENTS LinguistTools)
+    qt_add_translations(joe-installer TS_FILES ${catalogs} RESOURCE_PREFIX "/i18n")
+endif()
+
 # The generated QML type registrations include the headers by name.
 target_include_directories(joe-installer PRIVATE src)
 target_link_libraries(joe-installer PRIVATE Qt6::Quick Qt6::QuickControls2)

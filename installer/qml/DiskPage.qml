@@ -27,7 +27,10 @@ PageFrame {
         visible: Backend.state !== Backend.Listing && Backend.disks.usableCount === 0
         Layout.fillWidth: true
         wrapMode: Text.Wrap
-        text: qsTr("None of this computer's disks can be used. joe Linux needs a disk of at least 20 GB, or 22 GB of free space beside another system, not counting the installation medium, with nothing on it in use.")
+        text: Backend.disks.minimumDiskSizeText && Backend.disks.minimumBesideSizeText
+              ? qsTr("None of this computer's disks can be used. joe Linux needs a disk of at least %1, or %2 of free space beside another system, not counting the installation medium, with nothing on it in use.")
+                    .arg(Backend.disks.minimumDiskSizeText).arg(Backend.disks.minimumBesideSizeText)
+              : qsTr("None of this computer's disks can be used.")
         font.family: Theme.family
         font.pixelSize: Theme.bodySize
         color: Theme.ink
@@ -193,8 +196,10 @@ PageFrame {
         Layout.fillWidth: true
         Layout.topMargin: 8
         wrapMode: Text.Wrap
-        text: qsTr("To keep what is on this disk, make room for joe Linux first. In Windows, open Disk Management, right-click the Windows partition, choose Shrink Volume and leave at least 22 GB free; then start this installer again. (%1.)")
-                .arg(page.disk.besideReason || "")
+        text: Backend.disks.minimumBesideSizeText
+              ? qsTr("To keep what is on this disk, make room for joe Linux first. In Windows, open Disk Management, right-click the Windows partition, choose Shrink Volume and leave at least %1 free; then start this installer again. (%2.)")
+                    .arg(Backend.disks.minimumBesideSizeText).arg(page.disk.besideReason || "")
+              : qsTr("To keep what is on this disk, make free space and start the installer again. (%1.)").arg(page.disk.besideReason || "")
         font.family: Theme.family
         font.pixelSize: Theme.smallSize
         color: Theme.muted
