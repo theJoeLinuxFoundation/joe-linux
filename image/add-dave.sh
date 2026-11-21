@@ -18,6 +18,8 @@ install -Dm644 "$system/boot-complete-dave.conf" "$units/boot-complete.target.d/
 install -Dm644 "$system/dave-seal.service" "$units/dave-seal.service"
 install -Dm644 "$system/dave-status.service" "$units/dave-status.service"
 
+install -Dm644 "$system/dave-tmpfiles.conf" "$rootfs/usr/lib/tmpfiles.d/dave.conf"
+
 # Enabled by shipping the links, not by a post-install step.
 mkdir -p "$units/boot-complete.target.requires" "$units/multi-user.target.wants" "$units/sysinit.target.wants"
 ln -sf ../dave-seal.service "$units/sysinit.target.wants/dave-seal.service"

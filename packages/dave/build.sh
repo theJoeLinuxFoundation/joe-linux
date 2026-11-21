@@ -21,8 +21,7 @@ package() {
     ln -s ../dave-finalize.service "$units/multi-user.target.wants/dave-finalize.service"
     ln -s ../dave-status.service "$units/multi-user.target.wants/dave-status.service"
 
-    install -d "$DESTDIR/usr/lib/tmpfiles.d"
-    echo 'd /var/cache/dave 0755 root root -' > "$DESTDIR/usr/lib/tmpfiles.d/dave.conf"
+    install -Dm644 /recipe/files/dave-tmpfiles.conf "$DESTDIR/usr/lib/tmpfiles.d/dave.conf"
 
     # Each shell finds these when it completes `dave`; they ask dave itself.
     local share="$DESTDIR/usr/share"

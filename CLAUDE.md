@@ -18,7 +18,7 @@ README.md explains the design; `packages/README.md` is the recipe-writing refere
 - **Nothing runs as root on the host, and sudo is not available.** Root-owned trees are made with `unshare --map-root-user`, build chroots with `bwrap`, disk images with `mkfs.btrfs --rootdir` and mtools (never mounted), and anything that truly needs root runs inside QEMU/KVM. Do not introduce steps that need sudo or docker.
 - **Zig 0.17.1.** It uses `pub fn main(init: std.process.Init)` and the `std.Io` interface; older idioms do not compile. Check the std source (`zig env` gives the lib dir) rather than relying on memory. Known traps: a directory opened without `.iterate = true` is path-only and ioctls on it fail with EBADF; `Io.Dir.readFileAlloc` returns 0 bytes for some procfs files; std has zstd decompression only, which is why writing packages pipes through the `zstd` program.
 - `build/` must be on btrfs (reflink copies, subvolumes). All generated state lives there and is git-ignored.
-- The VM harness and `image/run.sh` hardcode Arch's OVMF paths (`/usr/share/edk2/x64/OVMF_*.4m.fd`).
+- The VM harness uses Arch's OVMF paths (`/usr/share/edk2/x64/OVMF_*.4m.fd`). For `image/run.sh`, set `OVMF_CODE` and `OVMF_VARS` to select another firmware image and variables template.
 - **Installed joe systems boot without an initramfs** (only the live medium has one), so the kernel mounts the root itself and, until udev has processed the partition, btrfs reports the root's device as `/dev/root`. Anything that needs the root's block device early in boot (systemd-repart, systemd-growfs) must run after udev; `packages/joe-base/build.sh` ships the drop-ins that arrange this.
 
 ## Commands

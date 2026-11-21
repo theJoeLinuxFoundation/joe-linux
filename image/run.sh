@@ -32,7 +32,8 @@
 set -euo pipefail
 
 top=$(cd "$(dirname "$0")/.." && pwd)
-ovmf=/usr/share/edk2/x64
+ovmf_code=${OVMF_CODE:-/usr/share/edk2/x64/OVMF_CODE.4m.fd}
+ovmf_vars=${OVMF_VARS:-/usr/share/edk2/x64/OVMF_VARS.4m.fd}
 qemu=${QEMU:-qemu-system-x86_64}
 desktop=0 persist= create=0 disk_size=64G share= sound=hda gl=auto memory= cpus= iso=
 while [[ $# -gt 0 ]]; do
@@ -65,7 +66,7 @@ if [[ -n $iso ]]; then
     if [[ ! -e $work/disk.img ]]; then
         mkdir -p "$work"
         truncate -s "$disk_size" "$work/disk.img"
-        cp "$ovmf/OVMF_VARS.4m.fd" "$work/OVMF_VARS.fd"
+        cp "$ovmf_vars" "$work/OVMF_VARS.fd"
         echo "new machine in $work: an empty $disk_size disk"
     fi
 elif [[ -n $persist ]]; then
@@ -78,7 +79,7 @@ elif [[ -n $persist ]]; then
         # backup to the new end and extends its root on the next boot
         # (usr/lib/repart.d, systemd-growfs-root.service).
         truncate -s "$disk_size" "$work/disk.img.new"
-        cp "$ovmf/OVMF_VARS.4m.fd" "$work/OVMF_VARS.fd"
+        cp "$ovmf_vars" "$work/OVMF_VARS.fd"
         mv "$work/disk.img.new" "$work/disk.img"
         echo "new machine in $work ($disk_size disk, from $(basename "$image"))"
     elif [[ $create -eq 1 ]]; then
@@ -90,7 +91,7 @@ else
     work=$top/build/images/run
     mkdir -p "$work"
     cp --reflink=auto --sparse=always "$image" "$work/disk.img"
-    cp "$ovmf/OVMF_VARS.4m.fd" "$work/OVMF_VARS.fd"
+    cp "$ovmf_vars" "$work/OVMF_VARS.fd"
 fi
 
 if [[ $desktop -eq 1 ]]; then
@@ -101,7 +102,7 @@ fi
 
 args=(
     -enable-kvm -cpu host -machine q35 -m "$memory" -smp "$cpus"
-    -drive if=pflash,format=raw,readonly=on,file="$ovmf/OVMF_CODE.4m.fd"
+    -drive if=pflash,format=raw,readonly=on,file="$ovmf_code"
     -drive if=pflash,format=raw,file="$work/OVMF_VARS.fd"
     -drive file="$work/disk.img",format=raw,if=virtio
     -netdev user,id=n0 -device virtio-net-pci,netdev=n0
