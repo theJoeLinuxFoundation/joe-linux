@@ -161,13 +161,24 @@ EOF
     # -a); a key belongs to a machine, so the unit makes it on first start.
     # It is not enabled.
     install -d "$DESTDIR/usr/lib/systemd/system"
+    # The standalone rndc-confgen -a -c can create keys at other paths.
+    install -Dm755 "$DESTDIR/usr/sbin/rndc-confgen" "$DESTDIR/usr/libexec/rndc-confgen"
+    cat > "$DESTDIR/usr/lib/systemd/system/named-rndc-key.service" << "EOF"
+[Unit]
+Description=Create the local BIND control key
+ConditionPathExists=!/etc/rndc.key
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/rndc-confgen -a -u named
+EOF
     cat > "$DESTDIR/usr/lib/systemd/system/named.service" << "EOF"
 [Unit]
 Description=Internet domain name server
-After=network.target
+Requires=named-rndc-key.service
+After=network.target named-rndc-key.service
 
 [Service]
-ExecStartPre=/usr/bin/sh -c 'test -e /etc/rndc.key || exec /usr/sbin/rndc-confgen -a -u named'
 ExecStart=/usr/sbin/named -f -u named -c /etc/named.conf
 ExecReload=/usr/sbin/rndc reload
 ExecStop=/usr/sbin/rndc stop

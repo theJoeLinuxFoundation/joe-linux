@@ -1,7 +1,7 @@
 .{
     .name = "bind",
     .version = "9.20.30",
-    .release = 1,
+    .release = 2,
     .description = "BIND DNS server (named) and the DNS tools dig, host, nslookup, nsupdate and rndc",
     .license = "MPL-2.0",
     .sources = .{
@@ -9,4 +9,13 @@
     },
     .depends = .{ "glibc", "liburcu", "libuv", "openssl", "libcap", "json-c", "libxml2", "nghttp2", "lmdb", "krb5", "libidn2", "readline", "zlib" },
     .build_depends = .{"pkgconf"},
+    .operations = .{
+        // named binds DNS and drops to its own account. Managed keys,
+        // journals and cache dumps live in the packaged working directory.
+        .{ .programs = .{"usr/sbin/named"}, .allow = .{ "net", "cap:net_bind_service", "cap:setgid", "cap:setuid", "write:/var/named" } },
+        // The unit creates named's control key on first start. Its reload
+        // and stop client reads that key and uses the TCP control channel.
+        .{ .programs = .{"usr/libexec/rndc-confgen"}, .allow = .{ "cap:chown", "write:/etc/rndc.key" } },
+        .{ .programs = .{"usr/sbin/rndc"}, .allow = .{ "net", "cap:dac_read_search" } },
+    },
 }
