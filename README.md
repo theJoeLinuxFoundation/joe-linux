@@ -433,11 +433,13 @@ Scratch (systemd, development branches), with the same package versions. Recipes
 - **Declarations beyond the desktop.** The privileged services and set-uid
   programs of the desktop, the boot helpers systemd-tmpfiles, sysusers,
   repart and growfs, the manual page indexer, nginx and the rsync daemon
-  hold declarations of their own. Other servers, including database servers,
-  still receive `all` from systemd. The make-ca certificate updater is a
-  Bash script and runs with the interpreter's declaration. Of the declared ones,
-  printing, Bluetooth, modems and ssh logins are declared from their
-  upstream units but not exercised by the tests. `dave repo audit
+  hold declarations of their own. The optional PostgreSQL, Unbound, chrony,
+  BIND, dnsmasq, HAProxy, Valkey, nftables and OpenVPN units also start
+  programs with explicit declarations. An undeclared privileged server can
+  still inherit `all` from systemd. The make-ca updater, wg-quick and
+  Postfix's service control script run with the shell's declaration.
+  Printing, Bluetooth, modems and ssh logins have declarations based on
+  their upstream units. Their service workloads still need tests. `dave repo audit
   build/repo` lists the undeclared programs and any invalid or missing
   seals.
 - **D-Bus services without a unit.** dbus-daemon-launch-helper is not

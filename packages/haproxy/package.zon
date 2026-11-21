@@ -1,7 +1,7 @@
 .{
     .name = "haproxy",
     .version = "3.4.7",
-    .release = 1,
+    .release = 2,
     .description = "Reliable, high-performance TCP and HTTP load balancer and proxy",
     .license = "GPL-2.0-or-later AND LGPL-2.1-only",
     .sources = .{
@@ -14,4 +14,9 @@
     // certificates with openssl.
     .depends = .{ "glibc", "openssl", "pcre2", "lua", "libxcrypt", "bash", "socat" },
     .build_depends = .{"pkgconf"},
+    .operations = .{
+        // The master binds listeners, signals workers and re-execs on reload.
+        // Workers chroot and drop to the account in haproxy.cfg.
+        .{ .programs = .{"usr/sbin/haproxy"}, .allow = .{ "net", "cap:net_bind_service", "cap:kill", "cap:sys_chroot", "cap:setgid", "cap:setuid", "exec:/usr/sbin/haproxy" } },
+    },
 }
