@@ -1,7 +1,7 @@
 .{
     .name = "unbound",
     .version = "1.26.2",
-    .release = 1,
+    .release = 2,
     .description = "Validating, recursive and caching DNS resolver, with libunbound",
     .license = "BSD-3-Clause",
     .sources = .{
@@ -9,4 +9,11 @@
     },
     .depends = .{ "glibc", "openssl", "libevent", "expat", "nghttp2", "systemd" },
     .build_depends = .{"pkgconf"},
+    .operations = .{
+        // The resolver binds DNS sockets as root, then drops to unbound.
+        // The separate trust-anchor unit starts as unbound and needs no
+        // privileged operations. Its public CLI also supports custom keys.
+        .{ .programs = .{"usr/sbin/unbound"}, .allow = .{ "net", "cap:net_bind_service", "cap:setgid", "cap:setuid" } },
+        .{ .programs = .{"usr/libexec/unbound-anchor"}, .allow = .{"none"} },
+    },
 }

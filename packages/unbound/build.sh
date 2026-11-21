@@ -64,6 +64,7 @@ EOF
     # directory; unbound.service is the book's (blfs-systemd-units) with
     # systemd notification. Neither is enabled.
     install -d "$DESTDIR/usr/lib/systemd/system"
+    install -Dm755 "$DESTDIR/usr/sbin/unbound-anchor" "$DESTDIR/usr/libexec/unbound-anchor"
     cat > "$DESTDIR/usr/lib/systemd/system/unbound-anchor.service" << "EOF"
 [Unit]
 Description=Update the DNSSEC root trust anchor for Unbound
@@ -77,7 +78,7 @@ User=unbound
 Group=unbound
 StateDirectory=unbound
 # The exit status is 1 when the anchor was updated, so it is not checked.
-ExecStart=-/usr/sbin/unbound-anchor -a /var/lib/unbound/root.key
+ExecStart=-/usr/libexec/unbound-anchor -a /var/lib/unbound/root.key
 EOF
     cat > "$DESTDIR/usr/lib/systemd/system/unbound.service" << "EOF"
 [Unit]
@@ -90,6 +91,9 @@ Wants=nss-lookup.target
 
 [Service]
 Type=notify
+# The resolver can use ordinary socket buffers within the kernel limits.
+# ExecReload signals the daemon after it has dropped to unbound.
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE CAP_SETGID CAP_SETUID CAP_KILL
 ExecStart=/usr/sbin/unbound -d -p
 ExecReload=/usr/bin/kill -HUP $MAINPID
 Restart=always
