@@ -41,6 +41,19 @@ package() {
     cd build
     DESTDIR="$DESTDIR" ninja install
 
+    # Match the boot helpers' declared capabilities. In particular, their
+    # journal sockets can use the normal send buffer without CAP_NET_ADMIN.
+    local unit caps
+    for unit in systemd-tmpfiles-{setup,setup-dev,setup-dev-early,clean} \
+                systemd-sysusers systemd-repart{,@} systemd-growfs{-root,@}; do
+        case "$unit" in
+            systemd-tmpfiles-*) caps="CAP_CHOWN CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_FOWNER CAP_FSETID CAP_MKNOD CAP_SYS_ADMIN" ;;
+            systemd-sysusers)   caps="CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER" ;;
+            *)                  caps="CAP_SYS_ADMIN" ;;
+        esac
+        printf '\n[Service]\nCapabilityBoundingSet=%s\n' "$caps" >> "$DESTDIR/usr/lib/systemd/system/$unit.service"
+    done
+
     # Packages have no install scripts. These triggers do, once per
     # transaction, what such scripts would: create the accounts and the files
     # under /var that newly installed packages declare, and rebuild the

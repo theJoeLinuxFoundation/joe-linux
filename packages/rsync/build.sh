@@ -18,6 +18,10 @@ build() {
 package() {
     make DESTDIR="$DESTDIR" install
 
+    # Only the copy launched by the units has the daemon's declaration.
+    # Root's general-purpose rsync also copies local files and runs ssh.
+    install -Dm755 "$DESTDIR/usr/bin/rsync" "$DESTDIR/usr/libexec/rsyncd"
+
     # The daemon. Nothing is enabled; rsync over ssh needs none of this.
     # The book's `make install-rsyncd` comes from blfs-systemd-units; these
     # are upstream's own units under the names the book uses.
@@ -26,6 +30,9 @@ package() {
     install -Dm644 packaging/systemd/rsync@.service "$DESTDIR/usr/lib/systemd/system/rsyncd@.service"
     sed -i 's/rsync\.service/rsyncd.service/; s/rsync@\.service/rsyncd@.service/' \
         "$DESTDIR"/usr/lib/systemd/system/rsyncd*
+
+    sed -i 's|/usr/bin/rsync --daemon|/usr/libexec/rsyncd --daemon|' \
+        "$DESTDIR"/usr/lib/systemd/system/rsyncd{,@}.service
 
     # The account the book creates (groupadd -g 48, useradd -u 48).
     install -d "$DESTDIR/usr/lib/sysusers.d"

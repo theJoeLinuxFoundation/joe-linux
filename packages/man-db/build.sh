@@ -50,6 +50,8 @@ EOF
     # mounted, so the trigger cannot reach the database then. Upstream's
     # daily timer (Persistent=true: it catches up after boot) covers that
     # case, and is enabled the way every unit is: by shipping the symlink.
+    # The indexer owns its cache and only needs readable manual pages.
+    printf '\n[Service]\nCapabilityBoundingSet=\n' >> "$DESTDIR/usr/lib/systemd/system/man-db.service"
     install -d "$DESTDIR/usr/lib/systemd/system/timers.target.wants"
     ln -s ../man-db.timer "$DESTDIR/usr/lib/systemd/system/timers.target.wants/man-db.timer"
 }

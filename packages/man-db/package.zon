@@ -1,7 +1,7 @@
 .{
     .name = "man-db",
     .version = "2.13.1",
-    .release = 1,
+    .release = 3,
     .description = "Programs for finding and viewing manual pages: man, apropos, whatis, mandb",
     .license = "GPL-3.0-or-later",
     .sources = .{
@@ -9,4 +9,8 @@
     },
     .depends = .{ "glibc", "libpipeline", "gdbm", "zlib", "libseccomp", "groff", "less" },
     .build_depends = .{ "pkgconf", "gettext" },
+    // The timer and the package trigger update the system-wide manual index.
+    .operations = .{
+        .{ .programs = .{"usr/bin/mandb"}, .allow = .{"write:/var/cache/man"} },
+    },
 }

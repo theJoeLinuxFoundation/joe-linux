@@ -1,7 +1,7 @@
 .{
     .name = "systemd",
     .version = "262.1",
-    .release = 9,
+    .release = 11,
     .description = "System and service manager, with udev and the systemd-boot boot loader",
     .license = "LGPL-2.1-or-later",
     .sources = .{
@@ -14,6 +14,15 @@
         // (an undeclared service inherits its all), and the core dump handler the
         // kernel starts.
         .{ .programs = .{ "usr/lib/systemd/systemd", "usr/lib/systemd/systemd-executor", "usr/lib/systemd/systemd-coredump" }, .allow = .{"all"} },
+        // tmpfiles creates directories, device nodes and ACLs from tmpfiles.d,
+        // and cleans the persistent temporary directories.
+        .{ .programs = .{"usr/bin/systemd-tmpfiles"}, .allow = .{ "cap:chown", "cap:dac_override", "cap:dac_read_search", "cap:fowner", "cap:fsetid", "cap:mknod", "cap:sys_admin", "write:/etc", "write:/var", "write:/home", "write:/srv", "write:/root/.ssh", "write:/tmp" } },
+        // sysusers replaces the account databases via temporary files in /etc.
+        .{ .programs = .{"usr/bin/systemd-sysusers"}, .allow = .{ "cap:chown", "cap:dac_override", "cap:fowner", "write:/etc" } },
+        // The installed system extends its root partition and btrfs filesystem.
+        // The disk name varies between machines; block-device writes are checked.
+        .{ .programs = .{"usr/bin/systemd-repart"}, .allow = .{ "cap:sys_admin", "write:/dev" } },
+        .{ .programs = .{"usr/lib/systemd/systemd-growfs"}, .allow = .{ "cap:sys_admin", "write:/dev" } },
         // The daemons below hold what their upstream units bound them to
         // (CapabilityBoundingSet=, AmbientCapabilities=), the persistent state they
         // keep, and the helpers they run. The journal: reading every process's

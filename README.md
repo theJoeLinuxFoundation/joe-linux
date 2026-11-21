@@ -431,10 +431,11 @@ Scratch (systemd, development branches), with the same package versions. Recipes
 ## Not done yet
 
 - **Declarations beyond the desktop.** The privileged services and set-uid
-  programs of the desktop hold declarations of their own, but the services
-  of the rest of the repository (web servers, databases and the like) and
-  the one-shot services of boot (systemd-tmpfiles, sysusers, repart) are
-  still undeclared and receive `all` from systemd. Of the declared ones,
+  programs of the desktop, the boot helpers systemd-tmpfiles, sysusers,
+  repart and growfs, the manual page indexer, nginx and the rsync daemon
+  hold declarations of their own. Other servers, including database servers,
+  still receive `all` from systemd. The make-ca certificate updater is a
+  Bash script and runs with the interpreter's declaration. Of the declared ones,
   printing, Bluetooth, modems and ssh logins are declared from their
   upstream units but not exercised by the tests. `dave repo audit
   build/repo` lists the undeclared programs and any invalid or missing

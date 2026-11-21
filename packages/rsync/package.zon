@@ -1,11 +1,16 @@
 .{
     .name = "rsync",
     .version = "3.5.2",
-    .release = 2,
+    .release = 3,
     .description = "Fast incremental file transfer, locally and over the network",
     .license = "GPL-3.0-or-later",
     .sources = .{
         .{ .url = "https://www.samba.org/ftp/rsync/src/rsync-3.5.2.tar.gz", .sha256 = "a10d591825251e070f74c98df3daad195def4ed81b4a2de16169026aea33f6c8" },
     },
     .depends = .{ "glibc", "popt", "zlib", "zstd", "lz4", "openssl", "acl", "libidn2" },
+    // The daemon listens on port 873 and serves the read-only module after
+    // entering its chroot and dropping to rsyncd.
+    .operations = .{
+        .{ .programs = .{"usr/libexec/rsyncd"}, .allow = .{ "net", "cap:net_bind_service", "cap:sys_chroot", "cap:setgid", "cap:setuid" } },
+    },
 }
