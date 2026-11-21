@@ -8,8 +8,8 @@
         // Debian's netcat-openbsd 1.239-1: the OpenBSD sources, and Debian's
         // patch series that ports them to Linux with libbsd. Both SHA-256
         // sums are in Debian's signed netcat-openbsd_1.239-1.dsc.
-        .{ .url = "http://deb.debian.org/debian/pool/main/n/netcat-openbsd/netcat-openbsd_1.239.orig.tar.gz", .sha256 = "8a2e52ea411f68c89952c944c32e4e5efbe901a566fb5fc6bbe92844a49b2a8e" },
-        .{ .url = "http://deb.debian.org/debian/pool/main/n/netcat-openbsd/netcat-openbsd_1.239-1.debian.tar.xz", .sha256 = "c0cd4380d674ef7e4dc96c2b970735b09a5e02741f50be96e6f5a2efc42e3119" },
+        .{ .url = "https://deb.debian.org/debian/pool/main/n/netcat-openbsd/netcat-openbsd_1.239.orig.tar.gz", .sha256 = "8a2e52ea411f68c89952c944c32e4e5efbe901a566fb5fc6bbe92844a49b2a8e" },
+        .{ .url = "https://deb.debian.org/debian/pool/main/n/netcat-openbsd/netcat-openbsd_1.239-1.debian.tar.xz", .sha256 = "c0cd4380d674ef7e4dc96c2b970735b09a5e02741f50be96e6f5a2efc42e3119" },
     },
     // Built without TLS (Debian's build-without-TLS-support.patch: OpenBSD's
     // libtls is not packaged).

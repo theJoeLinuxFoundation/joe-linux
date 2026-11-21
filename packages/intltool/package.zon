@@ -5,7 +5,7 @@
     .description = "Tools for extracting translatable strings from source files and merging translations back",
     .license = "GPL-2.0-or-later",
     .sources = .{
-        .{ .url = "http://launchpad.net/intltool/trunk/0.51.0/+download/intltool-0.51.0.tar.gz", .sha256 = "67c74d94196b153b774ab9f89b2fa6c6ba79352407037c8c14d5aeb334e959cd" },
+        .{ .url = "https://launchpad.net/intltool/trunk/0.51.0/+download/intltool-0.51.0.tar.gz", .sha256 = "67c74d94196b153b774ab9f89b2fa6c6ba79352407037c8c14d5aeb334e959cd" },
     },
     .depends = .{ "perl", "perl-xml-parser", "gettext" },
 }

@@ -5,7 +5,7 @@
     .description = "Library for the IPv6 Neighbor Discovery Protocol",
     .license = "LGPL-2.1-or-later",
     .sources = .{
-        .{ .url = "http://libndp.org/files/libndp-1.9.tar.gz", .sha256 = "a8ab214e01dc3a9b615276905395637f391298c84d77651f0cbf0b1082dd2dd4" },
+        .{ .url = "https://ftp.osuosl.org/pub/blfs/conglomeration/libndp/libndp-1.9.tar.gz", .sha256 = "a8ab214e01dc3a9b615276905395637f391298c84d77651f0cbf0b1082dd2dd4" },
     },
     .depends = .{"glibc"},
 }

@@ -8,11 +8,11 @@
         // Upstream's last release (2014). Upstream publishes no checksum;
         // Debian's signed iftop_1.0~pre4-10.dsc gives this SHA-256 for the
         // same archive (its orig tarball).
-        .{ .url = "http://www.ex-parrot.com/~pdw/iftop/download/iftop-1.0pre4.tar.gz", .sha256 = "f733eeea371a7577f8fe353d86dd88d16f5b2a2e702bd96f5ffb2c197d9b4f97" },
+        .{ .url = "https://www.ex-parrot.com/~pdw/iftop/download/iftop-1.0pre4.tar.gz", .sha256 = "f733eeea371a7577f8fe353d86dd88d16f5b2a2e702bd96f5ffb2c197d9b4f97" },
         // Debian's patch series, which carries the fixes upstream made after
         // the release (GCC 15, IPv6 name resolution) and a few of Debian's
         // own. Its SHA-256 is in the same .dsc.
-        .{ .url = "http://deb.debian.org/debian/pool/main/i/iftop/iftop_1.0%7Epre4-10.debian.tar.xz", .sha256 = "ca112468503db1daa01e3d6f0b25d136df1a3dd1bc53b480da15c49553425110", .file = "iftop_1.0pre4-10.debian.tar.xz" },
+        .{ .url = "https://deb.debian.org/debian/pool/main/i/iftop/iftop_1.0%7Epre4-10.debian.tar.xz", .sha256 = "ca112468503db1daa01e3d6f0b25d136df1a3dd1bc53b480da15c49553425110", .file = "iftop_1.0pre4-10.debian.tar.xz" },
     },
     // Capturing needs root.
     .depends = .{ "glibc", "libpcap", "ncurses" },

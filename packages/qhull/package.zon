@@ -7,7 +7,7 @@
     .sources = .{
         // Checked against the MD5 on qhull.org's download page. Qhull 2020.2
         // is library version 8.0.2; the 8.1 tags are alphas.
-        .{ .url = "http://www.qhull.org/download/qhull-2020-src-8.0.2.tgz", .sha256 = "b5c2d7eb833278881b952c8a52d20179eab87766b00b865000469a45c1838b7e" },
+        .{ .url = "https://deb.debian.org/debian/pool/main/q/qhull/qhull_2020.2.orig.tar.gz", .sha256 = "b5c2d7eb833278881b952c8a52d20179eab87766b00b865000469a45c1838b7e", .file = "qhull-2020-src-8.0.2.tgz" },
     },
     .depends = .{ "glibc", "gcc" },
     .build_depends = .{ "cmake", "ninja" },
