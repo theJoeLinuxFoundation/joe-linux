@@ -594,8 +594,11 @@ cat > container.zon <<'EOF'
     },
 }
 EOF
+chmod 0600 "$work/signing.pub"
 "$dave" image build container.zon --repo "$repo_arg" --out container.tar
 ''' },
+  { run = 'stat -c %a "$work/signing.pub"', equals = "600", name = "the host key keeps its original permissions" },
+  { run = '"$dave" image build container.zon --repo "test,$work/repo,http://example.invalid,$work/signing.key" --out invalid-key.tar', exit = "nonzero", stream = "combined", contains = "is not a repository public key" },
   { run = '''printf '.{ .name = "x", .packages = .{"hello"}, .oci = .{} }\n' > misplaced.zon && "$dave" image build misplaced.zon --repo "$repo_arg" --out misplaced.img''', exit = "nonzero", stream = "combined", contains = ".oci is for .format = .oci", name = ".oci on a disk image is refused" },
   # An OCI image layout: every blob named by its digest, the configuration
   # naming the uncompressed layer, the layer holding the tree.
@@ -622,6 +625,8 @@ docker = json.load(open(os.path.join(top, "manifest.json")))
 assert docker[0]["RepoTags"] == ["cli-container:latest"], docker
 with tarfile.open(fileobj=io.BytesIO(layer)) as t:
     members = {m.name.removeprefix("./"): m for m in t.getmembers()}
+    key = members["etc/dave/keys/test.pub"]
+    assert key.mode == 0o644 and t.extractfile(key).read() == open("signing.pub", "rb").read(), key
     hello = members["usr/bin/hello"]
     assert hello.uid == 0 and hello.gid == 0 and t.extractfile(hello).read() == b"hello v2\n", hello
     repos = t.extractfile(members["etc/dave/repos.zon"]).read().decode()

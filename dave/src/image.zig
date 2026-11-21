@@ -284,8 +284,15 @@ pub const Builder = struct {
         try root.createDirPath(b.io, repo.keys_path);
         for (b.repos) |r| {
             const dest = try std.fmt.allocPrint(b.arena, repo.keys_path ++ "/{s}.pub", .{r.name});
-            cwd.copyFile(r.key, root, dest, b.io, .{}) catch |err|
-                return b.fail("cannot copy the key {s}: {t}", .{ r.key, err });
+            const text = cwd.readFileAlloc(b.io, r.key, b.arena, .limited(4096)) catch |err|
+                return b.fail("cannot read the key {s}: {t}", .{ r.key, err });
+            _ = repo.parsePublicKey(text) catch return b.fail("{s} is not a repository public key", .{r.key});
+            // Unprivileged searches verify the index with the guest's public key.
+            var key = try root.createFileAtomic(b.io, dest, .{ .replace = true });
+            defer key.deinit(b.io);
+            try key.file.writeStreamingAll(b.io, text);
+            try key.file.setPermissions(b.io, .fromMode(0o644));
+            try key.replace(b.io);
         }
         try root.writeFile(b.io, .{ .sub_path = repo.config_path, .data = try reposZon(b.arena, b.repos, .build) });
     }
