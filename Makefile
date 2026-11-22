@@ -135,7 +135,7 @@ run:
 	image/run.sh
 
 test-joe: build/host-tools/bin/mcopy
-	$(NEOMAKE) test deployments-joe
+	$(NEOMAKE) test deployments-joe deployments-power-cut
 
 test-security: build/host-tools/bin/mcopy
 	$(NEOMAKE) test 'security*'

@@ -5,7 +5,9 @@
 #   deployments        on the scaffold (host kernel, borrowed userspace), in minutes
 #   deployments-joe    on an image built entirely from joe's own packages (make packages first)
 #
-# Both run the same scenarios, deployment-scenarios, with their own
+#   deployments-power-cut    immediate guest power loss after live install and remove on joe
+#
+# The first two run the same scenarios, deployment-scenarios, with their own
 # repository of test packages, which the scenarios publish newer versions
 # into as they go.
 
@@ -266,4 +268,36 @@ on_failure = [{ run = 'dave status; dave deployments; entries' }]
 steps = [
   { run = 'cat /etc/os-release; uname -r' },
   { use = "deployment-scenarios", with = { repo = "build/vm-repo-joe" } },
+]
+
+[tests.deployments-power-cut]
+description = "install and remove survive an immediate power cut on a FAT ESP"
+tags = ["vm", "joe"]
+deps = ["joe-deployments-image"]
+services = ["joe-repo", "test-repo-joe"]
+machine = "joe-deployments"
+timeout = "12m"
+on_boot = ${deployment_helpers}
+on_failure = [{ run = 'cat /proc/cmdline; ls -la /efi/loader/entries; dave deployments' }]
+steps = [
+  { run = 'findmnt -no FSTYPE /efi', equals = "vfat" },
+  # Keep normal periodic guest writeback out of the test. Only dave should
+  # make these changes durable; cut power as soon as its command returns.
+  { run = 'sysctl -qw vm.dirty_writeback_centisecs=0' },
+  { run = 'dave install ninja', contains = "Saved the current system as deployment 2." },
+  { power_cut = {} },
+  # Live changes leave the running subvolume selected. The new numbered
+  # subvolume preserves the state from just before each change.
+  { run = 'expect_running 1 && ninja --version' },
+  { run = 'grep -Fx "version 3" /efi/loader/entries/joe-1.conf && grep -Fx "version 2" /efi/loader/entries/joe-2.conf' },
+  { run = 'test ! -e /run/dave/top/joe/deploy/2/usr/bin/ninja && grep -Fx ninja /etc/dave/world' },
+
+  { run = 'sysctl -qw vm.dirty_writeback_centisecs=0' },
+  { run = 'dave remove ninja', contains = "Saved the current system as deployment 3." },
+  { power_cut = {} },
+  { run = 'expect_running 1 && test ! -e /usr/bin/ninja && test -s /etc/dave/world && ! grep -Fx ninja /etc/dave/world' },
+  { run = 'grep -Fx "version 5" /efi/loader/entries/joe-1.conf && grep -Fx "version 4" /efi/loader/entries/joe-3.conf' },
+  { run = 'dave rollback', contains = "Deployment 3 will start on the next boot" },
+  { reboot = {} },
+  { run = 'expect_running 3 && ninja --version', name = "the saved rollback point also boots" },
 ]
