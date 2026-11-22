@@ -1,0 +1,13 @@
+.{
+    .name = "seatd",
+    .version = "0.9.3",
+    .release = 1,
+    .description = "libseat, which lets a Wayland compositor open displays and input devices through logind",
+    .license = "MIT",
+    .sources = .{
+        .{ .url = "https://git.sr.ht/~kennylevinsen/seatd/archive/0.9.3.tar.gz", .sha256 = "302564d54d8e28191fadfd734f2675ecb0c9e0615a58011b89ef15dfa4dbaa96" },
+    },
+    // libsystemd: libseat's logind backend.
+    .depends = .{ "glibc", "systemd" },
+    .build_depends = .{ "meson", "ninja", "pkgconf" },
+}
