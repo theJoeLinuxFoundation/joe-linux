@@ -1,0 +1,18 @@
+.{
+    .name = "pdfium",
+    .version = "160.0.8165.0",
+    .release = 1,
+    .description = "PDFium, Chrome's PDF engine, as a shared library (no JavaScript, no XFA forms)",
+    // PDFium is BSD-3-Clause; the components built into it are under
+    // their own terms (Apache-2.0, ICU, FreeType, zlib, libpng, IJG, MIT,
+    // BSD-2-Clause, Boost), each installed under /usr/share/licenses/pdfium.
+    .license = "BSD-3-Clause AND Apache-2.0 AND ICU AND FTL AND Zlib AND Libpng AND IJG AND MIT AND BSD-2-Clause AND BSL-1.0",
+    .sources = .{
+        // Upstream's release build, not built here: see build.sh.
+        .{ .url = "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F8165/pdfium-linux-x64.tgz", .sha256 = "ba7865e16c0271daab75256790be06c26272190afe6e2a70eae0bb39bb99089c", .file = "pdfium-linux-x64-8165.tgz" },
+    },
+    // Everything else it needs is built in: it links only the C library,
+    // libm, libpthread and libgcc_s.
+    .depends = .{ "glibc", "gcc" },
+    .build_depends = .{"libarchive"},
+}

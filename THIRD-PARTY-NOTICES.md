@@ -99,8 +99,10 @@ shows:
 - **TypeScript** is not built from source: the recipe installs upstream's
   compiled release. It is used only to build other packages and is not part of
   any image.
-- **Julia and bun** are repackaged upstream binaries. The installation
-  medium includes Julia to run pour.
+- **Julia, bun and PDFium** are repackaged upstream binaries. The installation
+  medium includes Julia to run pour. PDFium is bblanchon/pdfium-binaries'
+  build of Chrome's PDF engine, with its component licences in
+  `/usr/share/licenses/pdfium`.
 - **Rust, Go, GHC and OpenJDK** use prebuilt compilers to bootstrap their
   source builds. Rust, Go and GHC use upstream binaries. OpenJDK uses the
   bootstrap JDK distributed by Beyond Linux From Scratch.
