@@ -1,0 +1,37 @@
+.{
+    .name = "mundane-de",
+    // A snapshot of main at 2a0c8d0 (22 November 2026): "pre" sorts it
+    // before a released 0.1.0. The archive is upstream's tools/dist.sh output
+    // (the crates vendored), byte-reproducible, hosted on joelinux.io.
+    .version = "0.1.0pre20261122",
+    .release = 1,
+    .description = "mundaneDE: joe Linux's Wayland desktop, with windows that settle into place on springs",
+    // The compositor, session and shell are BSD-3-Clause; Settings is MIT
+    // (derived from argentumOS's). The vendored crates keep their own
+    // licences, shipped in the archive.
+    .license = "BSD-3-Clause AND MIT",
+    .sources = .{
+        .{ .url = "https://joelinux.io/sources/mundaneDE-0.1.0-2a0c8d0.tar.xz", .sha256 = "cc28d235ccec2f3c399ccc3c2dff94a59e3dc93cf3843ca31befab29bfd64f39" },
+    },
+    // The session it starts, as upstream's packaging handoff lists it
+    // (docs/plan.md, "joe packaging handoff"): the compositor's libraries;
+    // the shell (Python, GTK 4 and gtk4-layer-shell through PyGObject); lock,
+    // portals, input methods, accessibility and the system services the
+    // panel and Settings drive; dave for upgrade notices.
+    .depends = .{
+        "glibc",                  "gcc",                   "wayland",            "seatd",
+        "libinput",               "systemd",               "libdrm",             "mesa",
+        "cairo",                  "libxkbcommon",          "xkeyboard-config",   "xwayland",
+        "vulkan-icd-loader",      "fontconfig",            "freetype",           "libx11",
+        "libxcb",                 "libxcursor",            "alsa-lib",           "dbus",
+        "openssl",                "python",                "pygobject",          "glib",
+        "gtk4",                   "gtk4-layer-shell",      "gsettings-desktop-schemas", "dconf",
+        "polkit",                 "swaylock",              "xdg-desktop-portal", "xdg-desktop-portal-gtk",
+        "xdg-desktop-portal-wlr", "grim",                  "gnome-keyring",      "pipewire",
+        "wireplumber",            "ibus",                  "at-spi2-core",       "orca",
+        "speech-dispatcher",      "espeak-ng",             "networkmanager",     "bluez",
+        "upower",                 "zenity",                "adwaita-icon-theme", "xdg-user-dirs",
+        "shared-mime-info",       "gdm",                   "accountsservice",    "dave",
+    },
+    .build_depends = .{ "rust", "llvm", "pkgconf", "wayland-protocols" },
+}
