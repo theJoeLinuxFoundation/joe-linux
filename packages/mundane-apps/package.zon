@@ -1,6 +1,6 @@
 .{
     .name = "mundane-apps",
-    // A snapshot of main at f9b9512 (22 November 2026): "pre" sorts it
+    // A snapshot of main at 4c254b4 (22 November 2026): "pre" sorts it
     // before a released 0.1.0. The archive is upstream's tools/dist.sh output
     // (the crates vendored), byte-reproducible, hosted on joelinux.io.
     .version = "0.1.0pre20261122",
@@ -10,8 +10,23 @@
     // The vendored crates keep their own licences, shipped in the archive.
     .license = "BSD-3-Clause AND Apache-2.0",
     .sources = .{
-        .{ .url = "https://joelinux.io/sources/mundane-apps-0.1.0-f9b9512.tar.xz", .sha256 = "fb993d116f18edd6319085c8d4aeb9f9fd1e63942505fb5d463d21f440204f96" },
+        .{ .url = "https://joelinux.io/sources/mundane-apps-0.1.0-4c254b4.tar.xz", .sha256 = "ede9f1956afa1bba42736db820634a8d7c3f2321d68d1cd1aa25d46891f25d5f" },
     },
-    .depends = .{ "glibc", "gcc" },
+    // What the eighteen programs link (readelf), what they load at run time
+    // (GPUI: Vulkan, Wayland, EGL; Document Viewer: PDFium; Video and Music:
+    // GStreamer's demuxers and decoders, and PipeWire for sound), and the
+    // services they drive: the portals (file chooser, appearance), UDisks
+    // (Disks), and dave through polkit (Packages).
+    .depends = .{
+        "glibc",              "gcc",                "glib",             "cairo",
+        "pango",              "fontconfig",         "freetype",         "icu",
+        "curl",               "libarchive",         "libinput",         "libxcb",
+        "libxkbcommon",       "mesa",               "seatd",            "systemd",
+        "wayland",            "vulkan-icd-loader",  "pdfium",           "gstreamer",
+        "gst-plugins-base",   "gst-plugins-good",   "gst-plugins-bad",  "gst-libav",
+        "pipewire",           "udisks",             "xdg-desktop-portal", "polkit",
+        "dave",               "shared-mime-info",   "desktop-file-utils", "hicolor-icon-theme",
+        "adwaita-icon-theme",
+    },
     .build_depends = .{ "rust", "llvm", "pkgconf" },
 }
