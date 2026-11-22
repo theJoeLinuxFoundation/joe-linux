@@ -15,12 +15,13 @@ build() {
 
     # GNOME Shell needs the IBus typelib to start and runs ibus-daemon
     # itself, as the panel; applications reach it through the compositor
-    # (Wayland text input). So only the library, its introspection data, the
-    # daemon, its dconf configuration service, the command line tool and the
-    # simple (keyboard layout) engine are built. Left out, compared with the
-    # book: the GTK 3 and GTK 4 input modules, the XIM server, ibus' own
-    # Wayland client and GTK panel, ibus-setup, the notification support
-    # that only the panel uses, and the Unicode dictionary, which needs the
+    # (Wayland text input). Other Wayland desktops (mundaneDE) start the
+    # daemon without a panel and run ibus' GTK 3 panel with its Wayland
+    # input-method frontend (ibus-ui-gtk3 --enable-wayland-im), which draws
+    # the candidate list; so that panel, ibus' Wayland client and the GTK 3
+    # input module are built as well. GNOME starts none of them. Left out,
+    # compared with the book: the GTK 4 input module, the XIM server,
+    # ibus-setup, notifications, and the Unicode dictionary, which needs the
     # Unicode Character Database (an extra download). --disable-gtk2,
     # --disable-appindicator and --disable-emoji-dict are the book's.
     ./configure --prefix=/usr \
@@ -32,11 +33,11 @@ build() {
         --enable-engine \
         --enable-systemd-services \
         --disable-gtk2 \
-        --disable-gtk3 \
+        --enable-gtk3 \
         --disable-gtk4 \
         --disable-xim \
-        --disable-wayland \
-        --disable-ui \
+        --enable-wayland \
+        --enable-ui \
         --disable-setup \
         --disable-libnotify \
         --disable-appindicator \
