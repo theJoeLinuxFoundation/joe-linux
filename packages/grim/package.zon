@@ -1,0 +1,12 @@
+.{
+    .name = "grim",
+    .version = "1.5.0",
+    .release = 1,
+    .description = "Screenshots of a Wayland compositor that offers screen copying",
+    .license = "MIT",
+    .sources = .{
+        .{ .url = "https://gitlab.freedesktop.org/emersion/grim/-/releases/v1.5.0/downloads/grim-1.5.0.tar.gz", .sha256 = "99708950205d5bfd2e769519fcb6423a9f545175a29c46c7c1cf7965afc4b8eb" },
+    },
+    .depends = .{ "glibc", "wayland", "pixman", "libpng", "libjpeg-turbo" },
+    .build_depends = .{ "meson", "ninja", "pkgconf", "wayland-protocols" },
+}

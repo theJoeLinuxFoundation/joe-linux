@@ -1,0 +1,14 @@
+.{
+    .name = "xdg-desktop-portal-wlr",
+    .version = "0.9.0",
+    .release = 1,
+    .description = "Screen sharing and screenshots for Wayland compositors that offer screen copying",
+    .license = "MIT",
+    .sources = .{
+        .{ .url = "https://github.com/emersion/xdg-desktop-portal-wlr/releases/download/v0.9.0/xdg-desktop-portal-wlr-0.9.0.tar.gz", .sha256 = "45e5c2d1a80f622892a00c980aca4bc50b6966137886892529f935caf0724172" },
+    },
+    // pipewire: the screen-cast streams; mesa: gbm, for the shared buffers;
+    // systemd: sd-bus, and the user unit; grim: screenshots.
+    .depends = .{ "glibc", "pipewire", "wayland", "inih", "mesa", "libdrm", "systemd", "xdg-desktop-portal", "grim" },
+    .build_depends = .{ "meson", "ninja", "pkgconf", "wayland-protocols" },
+}
