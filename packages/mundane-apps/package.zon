@@ -1,0 +1,17 @@
+.{
+    .name = "mundane-apps",
+    // A snapshot of main at f9b9512 (22 November 2026): "pre" sorts it
+    // before a released 0.1.0. The archive is upstream's tools/dist.sh output
+    // (the crates vendored), byte-reproducible, hosted on joelinux.io.
+    .version = "0.1.0pre20261122",
+    .release = 1,
+    .description = "mundaneDE's applications: Files, Terminal, Text Editor and fifteen more, written with GPUI",
+    // The suite is BSD-3-Clause; GPUI, which it is built on, is Apache-2.0.
+    // The vendored crates keep their own licences, shipped in the archive.
+    .license = "BSD-3-Clause AND Apache-2.0",
+    .sources = .{
+        .{ .url = "https://joelinux.io/sources/mundane-apps-0.1.0-f9b9512.tar.xz", .sha256 = "fb993d116f18edd6319085c8d4aeb9f9fd1e63942505fb5d463d21f440204f96" },
+    },
+    .depends = .{ "glibc", "gcc" },
+    .build_depends = .{ "rust", "llvm", "pkgconf" },
+}
