@@ -682,7 +682,10 @@ const App = struct {
         if (solution.isEmpty()) {
             // Nothing to install or remove, but the world may have changed:
             // what was asked for is now remembered as asked for, or not.
-            if (!app.opts.dry_run) try db.saveWorld(app.arena, app.io, ctx.root, world.items);
+            if (!app.opts.dry_run) {
+                try db.saveWorld(app.arena, app.io, ctx.root, world.items);
+                if (current != null) try std.posix.syncfs(ctx.root.handle);
+            }
             if (kind == .install) return app.say("Already installed.", .{});
             for (named.items) |n| {
                 const needing = try query.requiredBy(app.arena, ctx.installed, n);
@@ -730,6 +733,9 @@ const App = struct {
             return e;
         };
         try db.saveWorld(app.arena, app.io, ctx.root, world.items);
+        // The package transaction flushed the payload. Its triggers and the
+        // subsequent world-file rename must also survive an immediate reboot.
+        if (current != null) try std.posix.syncfs(ctx.root.handle);
         try app.say("Done.", .{});
 
         if (sys) |*s| {
@@ -1839,35 +1845,44 @@ const App = struct {
         const consoles = try provision.consoleArgs(app.arena, app.readAbsolute("/proc/cmdline") orelse "");
         const extra = if (app.opts.enforce) try std.fmt.allocPrint(app.arena, "{s} joe=enforce", .{consoles}) else consoles;
         const options = try provision.cmdlineFor(app.arena, root_uuid, extra);
+        if (beside != null) {
+            // joe-base's repart.d grows the first partition of type "root" on
+            // the disk into free space at every boot. Beside another Linux,
+            // that could be the other system's; joe already has its space.
+            try target.createDirPath(app.io, "etc/repart.d");
+            target.symLink(app.io, "/dev/null", "etc/repart.d/50-root.conf", .{}) catch |e|
+                return app.failErr(e, "cannot turn off growing the root partition", .{});
+        }
+        try std.posix.syncfs(target.handle);
         // Closed before the target is unmounted, as the ESP is mounted in it.
         {
             var esp = try app.openDir(target_path ++ "/" ++ provision.esp_mount);
             defer esp.close(app.io);
-            if (beside != null) {
-                var xbootldr = try app.openDir(target_path ++ "/" ++ provision.xbootldr_mount);
-                defer xbootldr.close(app.io);
-                provision.writeBeside(app.arena, app.io, esp, xbootldr, .{ .root = target, .kernel_path = kernel }, options) catch |e|
+            const xbootldr = if (beside != null) try app.openDir(target_path ++ "/" ++ provision.xbootldr_mount) else null;
+            defer if (xbootldr) |dir| dir.close(app.io);
+            if (xbootldr) |dir| {
+                provision.writeBeside(app.arena, app.io, esp, dir, .{ .root = target, .kernel_path = kernel }, options) catch |e|
                     return app.failErr(e, "cannot write the boot partitions", .{});
-                // joe-base's repart.d grows the first partition of type "root" on
-                // the disk into free space at every boot. Beside another Linux,
-                // that could be the other system's; joe already has its space.
-                try target.createDirPath(app.io, "etc/repart.d");
-                target.symLink(app.io, "/dev/null", "etc/repart.d/50-root.conf", .{}) catch |e|
-                    return app.failErr(e, "cannot turn off growing the root partition", .{});
             } else {
                 provision.writeEsp(app.arena, app.io, esp, .{ .root = target, .kernel_path = kernel }, options) catch |e|
                     return app.fail("cannot write the EFI system partition: {t}", .{e});
             }
-            // Tell the firmware where the boot loader is. A firmware that will not
-            // be told still finds it at the removable-media path. bootctl also
-            // copies the loader there, over whatever is there: beside another
-            // system, that is put back unless it was systemd-boot already.
-            const fallback = boot.loader_targets[1];
-            const kept: ?[]const u8 = if (beside != null) keep: {
-                const old = esp.readFileAlloc(app.io, fallback, app.arena, .limited(64 * 1024 * 1024)) catch break :keep null;
-                break :keep if (boot.isLoader(old)) null else old;
-            } else null;
+            // bootctl install also forcibly replaces the removable-media loader.
+            // Beside another OS, dave already installed the appropriate binaries.
+            // Give bootctl an empty EFI source in its own mount namespace so it
+            // registers the normal first-choice firmware entry without recopying.
             var argv: std.ArrayList([]const u8) = .empty;
+            if (beside != null) try argv.appendSlice(app.arena, &.{
+                "unshare",
+                "--mount",
+                "--propagation",
+                "private",
+                "sh",
+                "-ec",
+                "mount -t tmpfs -o ro tmpfs \"$1\"; shift; exec \"$@\"",
+                "sh",
+                target_path ++ "/" ++ (comptime std.fs.path.dirname(boot.loader_source).?),
+            });
             try argv.appendSlice(app.arena, &.{
                 "bootctl",                "install",         "--root=" ++ target_path,    "--esp-path=/efi",
                 "--install-source=image", "--variables=yes", "--make-entry-directory=no", "--graceful",
@@ -1877,8 +1892,8 @@ const App = struct {
             if (command.run(app.arena, app.io, argv.items, .{}, &diag)) |_| {} else |_| {
                 app.say("note: the firmware was not told about the new system ({s}); it starts from the disk's removable-media path", .{diag.message}) catch {};
             }
-            if (kept) |data| esp.writeFile(app.io, .{ .sub_path = fallback, .data = data }) catch |e|
-                return app.failErr(e, "cannot put back the other system's {s}", .{fallback});
+            try boot.syncFilesystem(app.io, esp);
+            if (xbootldr) |dir| try boot.syncFilesystem(app.io, dir);
         }
 
         app.step(0.99, "Finishing", .{});
