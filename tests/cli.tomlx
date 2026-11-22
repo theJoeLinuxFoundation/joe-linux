@@ -258,6 +258,7 @@ steps = [
   { run = 'test ! -e "$work/delegated.pub"', name = "and does nothing" },
   { run = '''PKEXEC_UID=1000 unshare --map-root-user "${D[@]}" install --expect sha256:00 tree''', exit = "nonzero", stream = "combined", contains = "started by pkexec", name = "or another root" },
   { run = '''PKEXEC_UID=1000 unshare --map-root-user "$dave" install tree''', exit = "nonzero", stream = "combined", contains = "only the change reviewed", name = "or a change without --expect" },
+  { run = '''PKEXEC_UID=1000 unshare --map-root-user "$dave" install-system --disk /dev/null --json''', exit = "nonzero", stream = "combined", contains = "started by pkexec", name = "or installing a system, away from the live medium" },
   { run = '''if out=$(PKEXEC_UID=1000 unshare --map-root-user "$dave" remove --json tree 2>/dev/null); then exit 1; fi; jq -e '.schema == "dave.error/1" and .reason == "not_allowed"' <<<"$out"''', name = "and says so to a program" },
   { run = '''unshare --map-root-user "${D[@]}" install --dry-run tree''', matches = '^  tree +2\.2-r1$', name = "root without pkexec is not narrowed" },
   { run = '''"${D[@]}" status --json | jq -e '.schema == "dave.status/1" and .managed == false and .prepared_upgrade == null and (.revision | length == 16)' ''', name = "status of a system not made of deployments" },

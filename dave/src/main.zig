@@ -248,6 +248,12 @@ const App = struct {
     /// authentication open lends a program no more than that.
     fn checkDelegated(app: *App, cmd: cli.Command) !void {
         const o = app.opts;
+        // The installer on the live medium runs install-system through
+        // pkexec; that is what the medium is for. Only there is the live
+        // root mounted at install_system.live_root, and mounting anything
+        // there takes root, which a program asking through pkexec does not
+        // have until dave runs. On an installed system the narrowing holds.
+        if (cmd == .@"install-system" and app.findMount(install_system.live_root) != null) return;
         const change = switch (cmd) {
             .install, .remove, .upgrade => true,
             else => false,

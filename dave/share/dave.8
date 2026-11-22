@@ -502,7 +502,9 @@ under the polkit action
 pkexec, dave installs, removes or upgrades this system's packages and does
 nothing else: it requires
 .BR \-\-expect ,
-and refuses any other command,
+and refuses any other command (except
+.B install\-system
+on the live medium, which its installer runs this way),
 .BR \-\-root ,
 .BR \-\-cache ,
 .BR \-\-no\-triggers ,
