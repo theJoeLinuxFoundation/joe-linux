@@ -1,4 +1,4 @@
-.TH DAVE 8 2026-11-21 "joe Linux" "joe Linux"
+.TH DAVE 8 2026-11-22 "joe Linux" "joe Linux"
 .SH NAME
 dave \- install, remove and upgrade software on joe Linux
 .SH SYNOPSIS
@@ -176,6 +176,15 @@ Replace files that exist but belong to no package.
 .B \-\-check
 Only say what an upgrade would change (upgrade).
 .TP
+.BI \-\-expect " digest"
+Make the change only if it is the one
+.I digest
+names, as a
+.B \-\-json
+dry run gave it; otherwise change nothing and exit with status 1
+(install, remove, upgrade). See
+.BR JSON .
+.TP
 .B \-\-reboot
 Apply the prepared upgrade now, and reboot (upgrade).
 .TP
@@ -211,7 +220,10 @@ and make those who administered it administrators. It must be on another
 disk.
 .TP
 .B \-\-json
-Report progress as JSON events, one per line, for a program watching.
+Answer in JSON, for a program: one document for list, info, search,
+status, deployments and a look at a change (see
+.BR JSON );
+for install\-system, progress events, one per line.
 .TP
 .BI \-\-with " package"
 Install
@@ -294,6 +306,181 @@ progress. Output to a pipe or a file, or to a terminal whose
 is
 .BR dumb ,
 is plain lines.
+.SH JSON
+With
+.BR \-\-json ,
+.BR list ,
+.BR info ,
+.BR search ,
+.BR status ,
+.BR deployments ,
+and
+.BR install ,
+.B remove
+or
+.B upgrade
+with
+.B \-\-dry\-run
+(and
+.BR "upgrade \-\-check" )
+print one JSON document on standard output; what is said for people goes
+to standard error. Each document has a
+.B schema
+field,
+.BI dave. kind / n\fR.
+Fields may be added to a schema without changing
+.IR n ;
+a field that goes or changes meaning makes it
+.IR n +1.
+A program should ignore fields it does not know and treat a schema it does
+not know as unreadable. A failure prints
+.B dave.error/1
+with the
+.B message
+dave says to people, and exits with status 1.
+.TP
+.B dave.list/1
+.BR packages :
+each
+.BR name ,
+.BR version ,
+.BR requested .
+.TP
+.B dave.info/1
+.BR name ,
+.BR description ,
+.BR license ,
+.B installed
+(null, or
+.BR version ,
+.B reason
+(requested, dependency, orphan),
+.BR needed_by ,
+.BR size ,
+.BR files ),
+.B available
+(null, or
+.BR version ,
+.BR repository ,
+.BR download_size ,
+.BR installed_size ),
+.BR depends ,
+.BR required_by .
+.TP
+.B dave.search/1
+.B index
+(fresh, cached, or none when no index has been fetched) and
+.BR packages ,
+each
+.BR name ,
+.BR version ,
+.BR description ,
+.B installed
+(null or the installed version). No match is an empty list.
+.TP
+.B dave.plan/1
+What a change would do:
+.B operation
+(install, remove, upgrade),
+.BR index ,
+.BR digest ,
+.BR install ,
+.B upgrade
+and
+.B remove
+(each
+.BR name ,
+.BR version ,
+.B from
+for an upgrade,
+.BR named ,
+.BR requested ),
+.BR download_size ,
+.B disk_change
+(null when a size is unknown) and, for an upgrade,
+.B prepared
+(null, or the upgrade already waiting for shutdown). No change: empty lists
+and a null
+.BR digest .
+.TP
+.B dave.result/1
+After a change:
+.BR operation ,
+.BR digest ,
+.B rollback_point
+(the deployment
+.B dave rollback
+returns to).
+.TP
+.B dave.status/1
+.B revision
+(changes whenever anything else here does: poll it),
+.B managed
+(false for a system not made of deployments),
+.B complete
+(false when only the running deployment could be seen, without root before
+dave\-status.service ran at boot),
+.BR running ,
+.BR next_boot ,
+.B deployments
+(each
+.BR id ,
+.BR running ,
+.BR next_boot ,
+.B health
+(good, untested, failed, or null without a boot entry),
+.BR pinned ,
+.BR reason ,
+.BR created ,
+.BR parent ),
+.B prepared_upgrade
+(null, or
+.BR summary ,
+.B install
+and
+.B remove
+counts) and
+.B last_upgrade
+(null, or
+.BR event ,
+.BR outcome ,
+.BR deployment ,
+.BR message ).
+.B outcome
+is read from the boot loader's counting of attempts:
+.B succeeded
+(the upgrade runs and passed its boot check),
+.B checking
+(it runs, its check has not passed yet),
+.B fallback
+(it failed its check on every attempt and the system before it came back by
+itself),
+.B not_running
+(another deployment was chosen, at the boot menu or with
+.BR "dave rollback" ;
+nothing failed),
+.B not_applied
+(the upgrade could not be applied at shutdown;
+.B message
+says why) or
+.BR unknown .
+.B event
+names the upgrade, so that it can be reported once.
+.TP
+.B dave.deployments/1
+.BR running ,
+.BR complete ,
+.BR deployments .
+.PP
+The
+.B digest
+names a change by its packages and versions. To make exactly the change a
+person reviewed, a program shows the
+.B dave.plan
+of a dry run and then runs the same command with
+.B \-\-expect
+.IR digest ;
+if the repositories or the system have moved meanwhile, nothing is changed.
 .SH ENVIRONMENT
 .TP
 .B NO_COLOR

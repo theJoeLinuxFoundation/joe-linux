@@ -30,6 +30,7 @@ pub const command = @import("command.zig");
 pub const install_system = @import("install_system.zig");
 pub const cli = @import("cli.zig");
 pub const help = @import("help.zig");
+const answers = @import("answers.zig");
 pub const ui = @import("ui.zig");
 pub const suggest = @import("suggest.zig");
 pub const errors = @import("errors.zig");
@@ -117,6 +118,38 @@ const App = struct {
         w.flush() catch return;
     }
 
+    /// The one document a --json answer is, on standard output (answers.zig).
+    fn emit(app: *App, value: anytype) void {
+        const w = app.events orelse return;
+        std.json.Stringify.value(value, .{}, w) catch return;
+        w.writeByte('\n') catch return;
+        w.flush() catch return;
+    }
+
+    /// What a failure said to people, for its dave.error document.
+    fn errorText(app: *App, err: anyerror) []const u8 {
+        if (err == error.Reported and app.last_error.len > 0) return app.last_error;
+        var buf: [256]u8 = undefined;
+        return std.fmt.allocPrint(app.arena, "unexpected failure: {s}", .{errors.text(&buf, err)}) catch "unexpected failure";
+    }
+
+    /// With --json, the change looked at, as a dave.plan document; null
+    /// for no change.
+    fn emitPlan(app: *App, kind: plan.Kind, p: ?plan.Plan, index: answers.Index, prepared: ?deploy.Staged) !void {
+        if (!app.opts.json) return;
+        const empty: plan.Plan = .{ .install = &.{}, .upgrade = &.{}, .remove = &.{}, .download = 0, .disk = 0 };
+        app.emit(try answers.planOf(app.arena, kind, p orelse empty, index, prepared));
+    }
+
+    /// --expect: the change about to be made must be the one reviewed, or
+    /// nothing is changed.
+    fn checkExpected(app: *App, kind: plan.Kind, p: ?plan.Plan) !void {
+        const want = app.opts.expect orelse return;
+        const have = if (p) |x| try answers.digest(app.arena, kind, x) else null;
+        if (have != null and std.mem.eql(u8, have.?, want)) return;
+        return app.fail("the change dave would make now ({s}) is not the one reviewed ({s}); nothing was changed", .{ have orelse "none", want });
+    }
+
     /// A step of a long operation: for people, and as an event.
     fn step(app: *App, fraction: f64, comptime fmt: []const u8, args: anytype) void {
         const message = std.fmt.allocPrint(app.arena, fmt, args) catch return;
@@ -144,15 +177,29 @@ const App = struct {
         };
         app.opts = parsed.opts;
         app.caps = ui.detect(app.io, app.environ, app.opts.json);
+        if (app.opts.json) {
+            // The answer alone on standard output; everything said for
+            // people (and what the programs dave runs say) on standard error.
+            app.events = app.out;
+            app.out = app.err;
+        }
         if (app.opts.show_version) return app.say("dave {s}", .{dave_version});
         const word = parsed.word orelse return help.overview(app.out, app.caps.color);
         const cmd = parsed.command orelse return app.unknownCommand("unknown command", word);
         if (app.opts.help) return help.command(app.out, cmd, app.caps.color);
         const rest = parsed.operands;
-        try app.checkRoot(cmd, rest);
         // Whatever the command did, and whether or not it succeeded, users
         // without root then see the system as it now is.
         defer if (app.opened_system) app.publishStatus();
+        app.dispatch(cmd, rest) catch |e| {
+            // install-system reports its failure as an event of its own.
+            if (app.opts.json and cmd != .@"install-system") app.emit(answers.Error{ .message = app.errorText(e) });
+            return e;
+        };
+    }
+
+    fn dispatch(app: *App, cmd: cli.Command, rest: []const []const u8) !void {
+        try app.checkRoot(cmd, rest);
         switch (cmd) {
             .help => return app.cmdHelp(rest),
             .version => return app.say("dave {s}", .{dave_version}),
@@ -638,7 +685,13 @@ const App = struct {
         defer if (lock_file) |*f| f.close(app.io);
 
         const ctx = try app.context();
-        const offered = try app.candidates(ctx, kind == .install and !looking);
+        const refreshed = kind == .install and !looking;
+        const offered = try app.candidates(ctx, refreshed);
+        const pk: plan.Kind = switch (kind) {
+            .install => .install,
+            .remove => .remove,
+        };
+        const index: answers.Index = if (refreshed) .fresh else if (offered.len == 0) .none else .cached;
         if (looking and kind == .install) try app.say("(Without root, dave uses the package index it fetched last.)", .{});
         var world: std.ArrayList(db.WorldEntry) = .empty;
         try world.appendSlice(app.arena, ctx.world);
@@ -680,6 +733,8 @@ const App = struct {
             .mode = .keep_installed,
         });
         if (solution.isEmpty()) {
+            try app.checkExpected(pk, null);
+            if (app.opts.dry_run) try app.emitPlan(pk, null, index, null) else app.emit(answers.Result{ .operation = pk, .digest = null, .rollback_point = null });
             // Nothing to install or remove, but the world may have changed:
             // what was asked for is now remembered as asked for, or not.
             if (!app.opts.dry_run) {
@@ -697,7 +752,8 @@ const App = struct {
             return;
         }
         const shown = try app.showPlan(ctx, solution, world.items, named.items);
-        if (app.opts.dry_run) return;
+        try app.checkExpected(pk, shown);
+        if (app.opts.dry_run) return app.emitPlan(pk, shown, index, null);
         if (caller == .person and !app.opts.yes and app.caps.ask and shown.needsQuestion(switch (kind) {
             .install => .install,
             .remove => .remove,
@@ -711,6 +767,7 @@ const App = struct {
 
         var sys: ?deploy.System = null;
         var had_staged = false;
+        var saved: ?u32 = null;
         if (current) |id| {
             for (solution.remove) |m| if (ownsKernel(m)) return app.fail("{s} provides the running kernel; it cannot be removed from a running system", .{m.name});
             for (files) |name| {
@@ -725,6 +782,7 @@ const App = struct {
                 if (sys.?.diag.message.len > 0) return app.fail("{s}", .{sys.?.diag.message});
                 return app.failErr(e, "cannot create a rollback point", .{});
             };
+            saved = point;
             try app.say("Saved the current system as deployment {d}.", .{point});
         }
 
@@ -736,6 +794,7 @@ const App = struct {
         // The package transaction flushed the payload. Its triggers and the
         // subsequent world-file rename must also survive an immediate reboot.
         if (current != null) try std.posix.syncfs(ctx.root.handle);
+        app.emit(answers.Result{ .operation = pk, .digest = try answers.digest(app.arena, pk, shown), .rollback_point = saved });
         try app.say("Done.", .{});
 
         if (sys) |*s| {
@@ -800,16 +859,25 @@ const App = struct {
             // container): there is nothing to protect, so apply directly.
             const ctx = try app.context();
             const looking = app.opts.check or app.opts.dry_run;
+            const refresh = app.canRefresh();
+            const offered = try app.candidates(ctx, refresh);
+            const index: answers.Index = if (refresh) .fresh else if (offered.len == 0) .none else .cached;
             const solution = try app.solve(.{
                 .world = ctx.world,
                 .installed = ctx.installed,
-                .candidates = try app.candidates(ctx, app.canRefresh()),
+                .candidates = offered,
                 .mode = .newest,
             });
-            if (solution.isEmpty()) return app.say("Everything is up to date.", .{});
-            _ = try app.showPlan(ctx, solution, ctx.world, &.{});
-            if (looking) return;
+            if (solution.isEmpty()) {
+                try app.checkExpected(.upgrade, null);
+                try app.emitPlan(.upgrade, null, index, null);
+                return app.say("Everything is up to date.", .{});
+            }
+            const shown = try app.showPlan(ctx, solution, ctx.world, &.{});
+            try app.checkExpected(.upgrade, shown);
+            if (looking) return app.emitPlan(.upgrade, shown, index, null);
             try app.applyNow(ctx, solution, try app.download(ctx, solution));
+            app.emit(answers.Result{ .operation = .upgrade, .digest = try answers.digest(app.arena, .upgrade, shown), .rollback_point = null });
             return app.say("Done.", .{});
         };
         if (app.opts.check or (app.opts.dry_run and linux.geteuid() != 0)) return app.checkUpgrade(current);
@@ -831,18 +899,27 @@ const App = struct {
     /// Solves, downloads, validates and records an upgrade of the running system.
     fn stageUpgrade(app: *App, sys: *deploy.System, refresh: bool) !void {
         const ctx = try app.context();
+        const offered = try app.candidates(ctx, refresh);
+        const index: answers.Index = if (refresh) .fresh else if (offered.len == 0) .none else .cached;
         const solution = try app.solve(.{
             .world = ctx.world,
             .installed = ctx.installed,
-            .candidates = try app.candidates(ctx, refresh),
+            .candidates = offered,
             .mode = .newest,
         });
         if (solution.isEmpty()) {
+            try app.checkExpected(.upgrade, null);
+            if (app.opts.dry_run) {
+                try app.emitPlan(.upgrade, null, index, (try sys.loadState()).staged);
+                return app.say("Everything is up to date.", .{});
+            }
             try sys.unstage();
+            try app.emitPlan(.upgrade, null, index, null);
             return app.say("Everything is up to date.", .{});
         }
-        _ = try app.showPlan(ctx, solution, ctx.world, &.{});
-        if (app.opts.dry_run) return;
+        const shown = try app.showPlan(ctx, solution, ctx.world, &.{});
+        try app.checkExpected(.upgrade, shown);
+        if (app.opts.dry_run) return app.emitPlan(.upgrade, shown, index, (try sys.loadState()).staged);
         const files = try app.download(ctx, solution);
         const hash = try db.stateHash(app.arena, ctx.installed);
         const summary = try std.fmt.allocPrint(app.arena, "{d} to install or upgrade, {d} to remove", .{ solution.install.len, solution.remove.len });
@@ -856,6 +933,7 @@ const App = struct {
             return app.fail("the upgrade would not apply cleanly: {t}", .{e});
         };
         for (result.notes) |n| try app.say("note: {s}", .{n});
+        app.emit(answers.Result{ .operation = .upgrade, .digest = try answers.digest(app.arena, .upgrade, shown), .rollback_point = null });
         try app.say("The upgrade is ready and will be applied when the system shuts down or reboots.", .{});
         try app.say("The running system has not been changed.", .{});
     }
@@ -869,14 +947,21 @@ const App = struct {
         defer if (lock_file) |*f| f.close(app.io);
         const ctx = try app.context();
         if (lock_file == null) try app.say("(dave uses the package index it fetched last.)", .{});
+        const offered = try app.candidates(ctx, lock_file != null);
+        const index: answers.Index = if (lock_file != null) .fresh else if (offered.len == 0) .none else .cached;
         const solution = try app.solve(.{
             .world = ctx.world,
             .installed = ctx.installed,
-            .candidates = try app.candidates(ctx, lock_file != null),
+            .candidates = offered,
             .mode = .newest,
         });
-        if (solution.isEmpty()) return app.say("Everything is up to date.", .{});
-        _ = try app.showPlan(ctx, solution, ctx.world, &.{});
+        const prepared: ?deploy.Staged = if (app.publishedView(current)) |view| view.staged else null;
+        if (solution.isEmpty()) {
+            try app.emitPlan(.upgrade, null, index, prepared);
+            return app.say("Everything is up to date.", .{});
+        }
+        const shown = try app.showPlan(ctx, solution, ctx.world, &.{});
+        try app.emitPlan(.upgrade, shown, index, prepared);
         if (app.publishedView(current)) |view| if (view.staged) |staged|
             return app.say("An upgrade is already prepared ({s}); it will be applied at shutdown.", .{staged.summary});
         try app.say("Run '{s}dave upgrade' to prepare it.", .{if (root) "" else "doas "});
@@ -891,6 +976,15 @@ const App = struct {
 
     fn cmdList(app: *App) !void {
         const ctx = try app.context();
+        if (app.opts.json) {
+            var listed: std.ArrayList(answers.Listed) = .empty;
+            for (ctx.installed) |m| {
+                const requested = inWorld(ctx.world, m.name);
+                if (app.opts.requested and !requested) continue;
+                try listed.append(app.arena, .{ .name = m.name, .version = m.version, .requested = requested });
+            }
+            return app.emit(answers.List{ .packages = listed.items });
+        }
         for (ctx.installed) |m| {
             const requested = inWorld(ctx.world, m.name);
             if (app.opts.requested and !requested) continue;
@@ -934,6 +1028,21 @@ const App = struct {
                 "'doas dave upgrade --check' fetches it", .{name});
             return app.fail("no package named {s} is installed or available{s}", .{ name, try app.suggestPackage(name, offered, ctx.installed) });
         }
+
+        if (app.opts.json) return app.emit(answers.Info{
+            .name = name,
+            .description = if (here) |m| m.description else newest.?.entry.description,
+            .license = if (here) |m| m.license else newest.?.entry.license,
+            .installed = if (here) |m| try app.installedReport(ctx, m) else null,
+            .available = if (newest) |c| .{
+                .version = c.entry.version,
+                .repository = c.repo_name,
+                .download_size = c.entry.size,
+                .installed_size = c.entry.installed_size,
+            } else null,
+            .depends = if (here) |m| m.depends else newest.?.entry.depends,
+            .required_by = try query.requiredBy(app.arena, ctx.installed, name),
+        });
 
         var rows: std.ArrayList([2][]const u8) = .empty;
         const row = struct {
@@ -985,6 +1094,22 @@ const App = struct {
         }
     }
 
+    fn installedReport(app: *App, ctx: Context, m: manifest.Manifest) !answers.Installed {
+        var files: usize = 0;
+        for (m.files) |f| files += @intFromBool(f.kind == .file);
+        var out: answers.Installed = .{ .version = m.version, .reason = .requested, .needed_by = null, .size = m.installedSize(), .files = files };
+        switch (try query.why(app.arena, ctx.installed, ctx.world, m.name)) {
+            .requested => {},
+            .chain => |c| {
+                out.reason = .dependency;
+                out.needed_by = c[c.len - 2];
+            },
+            .orphan => out.reason = .orphan,
+            .not_installed => unreachable,
+        }
+        return out;
+    }
+
     fn cmdSearch(app: *App, terms: []const []const u8) !void {
         if (terms.len == 0) return app.fail("give at least one word to search for; see 'dave help search'", .{});
         const ctx = try app.context();
@@ -992,6 +1117,13 @@ const App = struct {
         // fetched last.
         const refresh = app.canRefresh();
         const found = try app.candidates(ctx, refresh);
+        if (app.opts.json) {
+            // For a program, no match and no index are answers, not failures.
+            const matches = try query.search(app.arena, found, ctx.installed, terms);
+            const out = try app.arena.alloc(answers.Found, matches.len);
+            for (matches, out) |m, *o| o.* = .{ .name = m.name, .version = m.version, .description = m.description, .installed = m.installed };
+            return app.emit(answers.Search{ .index = if (refresh) .fresh else if (found.len == 0) .none else .cached, .packages = out });
+        }
         if (!refresh and found.len == 0)
             return app.fail("no repository index has been fetched yet; 'doas dave search {s}' fetches it", .{try ui.shellQuote(app.arena, terms)});
         const matches = try query.search(app.arena, found, ctx.installed, terms);
@@ -1167,19 +1299,42 @@ const App = struct {
 
     fn cmdStatus(app: *App) !void {
         const current = app.runningDeployment() orelse {
+            if (app.opts.json) return app.emit(try answers.withRevision(app.arena, .{
+                .managed = false,
+                .complete = true,
+                .running = null,
+                .next_boot = null,
+                .deployments = &.{},
+                .prepared_upgrade = null,
+                .last_upgrade = null,
+            }));
             const ctx = try app.context();
             return app.say("{d} packages installed in {s} (not a deployment-managed system).", .{ ctx.installed.len, app.opts.root });
         };
         if (linux.geteuid() != 0) {
             const view = app.publishedView(current) orelse {
+                if (app.opts.json) return app.emit(try answers.withRevision(app.arena, .{
+                    .managed = true,
+                    .complete = false,
+                    .running = current,
+                    .next_boot = null,
+                    .deployments = &.{},
+                    .prepared_upgrade = null,
+                    .last_upgrade = null,
+                }));
                 try app.say("Running deployment {d}.", .{current});
                 return app.say("Until dave-status.service has run at boot, only root can see the other deployments " ++
                     "and any pending upgrade; 'doas dave status' shows them.", .{});
             };
-            return app.printStatus(current, view);
+            return app.showStatus(current, view);
         }
         var sys = try app.openSystem(current);
-        try app.printStatus(current, try sys.overview());
+        try app.showStatus(current, try sys.overview());
+    }
+
+    fn showStatus(app: *App, current: u32, view: deploy.System.Overview) !void {
+        if (app.opts.json) return app.emit(try answers.withRevision(app.arena, try answers.statusOf(app.arena, current, view)));
+        return app.printStatus(current, view);
     }
 
     fn printStatus(app: *App, current: u32, view: deploy.System.Overview) !void {
@@ -1212,6 +1367,11 @@ const App = struct {
         try app.say("\n* running   > starts on next boot", .{});
     }
 
+    fn showDeployments(app: *App, current: u32, view: deploy.System.Overview) !void {
+        if (app.opts.json) return app.emit(answers.Deployments{ .running = current, .complete = true, .deployments = try answers.deploymentsOf(app.arena, view) });
+        return app.printDeployments(view);
+    }
+
     fn cmdRollback(app: *App) !void {
         var lock_file = try app.lock();
         defer lock_file.close(app.io);
@@ -1234,12 +1394,16 @@ const App = struct {
         if (args.len == 0 or std.mem.eql(u8, args[0], "list")) {
             const current = app.runningDeployment() orelse
                 return app.fail("this command only applies to a running joe Linux system", .{});
-            if (linux.geteuid() != 0)
-                return app.printDeployments(app.publishedView(current) orelse
+            if (linux.geteuid() != 0) {
+                const view = app.publishedView(current) orelse {
+                    if (app.opts.json) return app.emit(answers.Deployments{ .running = current, .complete = false, .deployments = &.{} });
                     return app.fail("until dave-status.service has run at boot, only root can list the deployments; " ++
-                        "'doas dave deployments' lists them", .{}));
+                        "'doas dave deployments' lists them", .{});
+                };
+                return app.showDeployments(current, view);
+            }
             var sys = try app.openSystem(current);
-            return app.printDeployments(try sys.overview());
+            return app.showDeployments(current, try sys.overview());
         }
         var sys = try app.requireSystem();
         var lock_file = try app.lock();
@@ -1656,12 +1820,6 @@ const App = struct {
     fn cmdInstallSystem(app: *App, args: []const []const u8) !void {
         if (args.len != 0 or (app.opts.list == (app.opts.disk != null)) or ((app.opts.beside or app.opts.enforce or app.opts.import_root != null) and app.opts.list))
             return app.fail("usage: dave install-system --list [--json] | --disk DISK [--beside] [--enforce] [--import DIR] [--json]", .{});
-        if (app.opts.json) {
-            // Events alone on standard output; everything said for people
-            // (and what the programs dave runs say) on standard error.
-            app.events = app.out;
-            app.out = app.err;
-        }
         if (app.opts.list) return app.listDisks();
         app.installSystem(app.opts.disk.?) catch |e| {
             app.event("error", if (app.last_error.len > 0) app.last_error else @errorName(e), null);

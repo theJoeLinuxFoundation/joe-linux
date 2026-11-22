@@ -232,10 +232,34 @@ steps = [
   { run = '"$dave" rollback', exit = "nonzero", stream = "combined", contains = "doas dave rollback" },
 ]
 
+[tests.cli-json]
+description = "answers for programs: one JSON document, a plan with its digest, and exactly the change reviewed"
+tags = ["fast", "cli"]
+deps = ["cli-mistakes"]
+cwd = "build/cli-test"
+env = ${cli_env}
+prelude = ${cli_prelude}
+steps = [
+  { run = '''"${D[@]}" list --json | jq -e '.schema == "dave.list/1" and (.packages | map(select(.name == "hello" and .requested)) | length == 1) and (.packages | map(select(.name == "libgreet" and (.requested | not))) | length == 1)' ''', name = "list" },
+  { run = '''"${D[@]}" info libgreet --json | jq -e '.schema == "dave.info/1" and .installed.reason == "dependency" and .installed.needed_by == "hello" and .available.repository == "test" and .required_by == ["hello"] and .license == "MIT"' ''', name = "info of a dependency" },
+  { run = '''"${D[@]}" info tree --json | jq -e '.installed == null and .available.version == "2.2-r1" and .available.installed_size == 5' ''', name = "info of what is not installed" },
+  { run = '''"${D[@]}" search hello --json | jq -e '.schema == "dave.search/1" and .index == "fresh" and .packages[0].name == "hello" and .packages[0].installed == "1.0-r1"' ''', name = "search" },
+  { run = '''"${D[@]}" search nothing-like-this --json | jq -e '.packages == []' ''', name = "no match is an empty answer, not a failure" },
+  { run = '''if out=$("${D[@]}" info helo --json 2>/dev/null); then exit 1; fi; jq -e '.schema == "dave.error/1" and (.message | test("did you mean hello"))' <<<"$out"''', name = "a failure is a dave.error document" },
+  { run = '''"${D[@]}" install --dry-run --json tree 2>/dev/null | jq -s 'length == 1' ''', equals = "true", name = "standard output holds the document alone" },
+  { run = '''"${D[@]}" install --dry-run --json tree | jq -e '.schema == "dave.plan/1" and .operation == "install" and (.digest | startswith("sha256:")) and .install == [{"name": "tree", "version": "2.2-r1", "from": null, "named": true, "requested": true}] and .upgrade == [] and .remove == []' ''', name = "a dry run is a plan" },
+  { run = '''"${D[@]}" install --dry-run --json hello | jq -e '.digest == null and .install == []' ''', name = "no change has no digest" },
+  { run = '''if out=$("${D[@]}" install --json --expect sha256:0000 tree 2>/dev/null); then exit 1; fi; jq -e '.message | test("not the one reviewed")' <<<"$out" && test ! -e root/usr/bin/tree''', name = "a change that is not the one reviewed is refused" },
+  { run = '''d=$("${D[@]}" install --dry-run --json tree | jq -r .digest); "${D[@]}" install --json --expect "$d" tree | jq -e --arg d "$d" '.schema == "dave.result/1" and .digest == $d' && test -e root/usr/bin/tree''', name = "the change reviewed is made" },
+  { run = '''d=$("${D[@]}" remove --dry-run --json tree | jq -r .digest); "${D[@]}" remove --expect "$d" tree''', contains = "Done.", name = "remove, by its digest" },
+  { run = 'cat root/etc/dave/world', equals = "hello", name = "as it was" },
+  { run = '''"${D[@]}" status --json | jq -e '.schema == "dave.status/1" and .managed == false and .prepared_upgrade == null and (.revision | length == 16)' ''', name = "status of a system not made of deployments" },
+]
+
 [tests.cli-impossible]
 description = "an impossible request is explained and changes nothing"
 tags = ["fast", "cli"]
-deps = ["cli-mistakes"]
+deps = ["cli-json"]
 cwd = "build/cli-test"
 env = ${cli_env}
 prelude = ${cli_prelude}
@@ -263,10 +287,12 @@ index >/dev/null
   { run = 'cat root/usr/bin/hello', equals = "hello v1", name = "an install upgrades nothing unrelated" },
   { run = '"${D[@]}" upgrade --check', matches = '^  hello +1\.0-r1 -> 2\.0-r1$' },
   { run = 'cat root/usr/bin/hello', equals = "hello v1", name = "upgrade --check changes nothing" },
+  { run = '''"${D[@]}" upgrade --check --json | jq -e '.operation == "upgrade" and (.upgrade | map(select(.name == "hello" and .from == "1.0-r1" and .version == "2.0-r1")) | length == 1) and .prepared == null and (.digest | startswith("sha256:"))' ''', name = "upgrade --check, for a program" },
   { run = '"${D[@]}" upgrade', matches = '^  hello +1\.0-r1 -> 2\.0-r1$' },
   { run = 'cat root/usr/bin/hello', equals = "hello v2" },
   { run = 'cat root/usr/lib/libgreet.txt', equals = "greet v1.1" },
   { run = '"${D[@]}" upgrade', contains = "Everything is up to date." },
+  { run = '''"${D[@]}" upgrade --check --json | jq -e '.digest == null and .upgrade == [] and .install == []' ''', name = "up to date, for a program" },
 ]
 
 [tests.cli-remove]

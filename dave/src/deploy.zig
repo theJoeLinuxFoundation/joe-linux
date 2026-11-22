@@ -67,6 +67,9 @@ pub const FinalizeOutcome = struct {
     ok: bool,
     message: []const u8 = "",
     deployment: ?u32 = null,
+    /// When it was tried, in seconds since the epoch (0 before dave 0.4.0-r3):
+    /// with `deployment`, what names the attempt for a program (answers.zig).
+    at: i64 = 0,
 };
 
 /// Only what the boot loader does not already know. Everything here can be
@@ -292,9 +295,9 @@ pub const System = struct {
         const id = state.next_id;
 
         const outcome: FinalizeOutcome = if (s.createDeployment(id, staged)) |_|
-            .{ .ok = true, .deployment = id, .message = staged.summary }
+            .{ .ok = true, .deployment = id, .message = staged.summary, .at = s.now() }
         else |err|
-            .{ .ok = false, .message = if (s.diag.message.len > 0)
+            .{ .ok = false, .at = s.now(), .message = if (s.diag.message.len > 0)
                 s.diag.message
             else
                 try std.fmt.allocPrint(s.arena, "{t}", .{err}) };
