@@ -246,6 +246,7 @@ steps = [
   { run = '''"${D[@]}" search hello --json | jq -e '.schema == "dave.search/1" and .index == "fresh" and .packages[0].name == "hello" and .packages[0].installed == "1.0-r1"' ''', name = "search" },
   { run = '''"${D[@]}" search nothing-like-this --json | jq -e '.packages == []' ''', name = "no match is an empty answer, not a failure" },
   { run = '''if out=$("${D[@]}" info helo --json 2>/dev/null); then exit 1; fi; jq -e '.schema == "dave.error/1" and (.message | test("did you mean hello")) and .reason == null' <<<"$out"''', name = "a failure is a dave.error document" },
+  { run = '''if "${D[@]}" info --json helo > both.log 2>&1; then exit 1; fi; grep -q '"schema":"dave.error/1"' both.log && grep -q '^dave: .*did you mean hello' both.log''', name = "standard output and error sent to one file keep both messages" },
   { run = '''"${D[@]}" install --dry-run --json tree 2>/dev/null | jq -s 'length == 1' ''', equals = "true", name = "standard output holds the document alone" },
   { run = '''"${D[@]}" install --dry-run --json tree | jq -e '.schema == "dave.plan/1" and .operation == "install" and (.digest | startswith("sha256:")) and .install == [{"name": "tree", "version": "2.2-r1", "from": null, "named": true, "requested": true}] and .upgrade == [] and .remove == []' ''', name = "a dry run is a plan" },
   { run = '''"${D[@]}" install --dry-run --json hello | jq -e '.digest == null and .install == []' ''', name = "no change has no digest" },

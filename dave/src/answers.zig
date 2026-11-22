@@ -92,13 +92,33 @@ pub const Change = struct {
 };
 
 pub const Prepared = struct {
+    /// Names this prepared upgrade: preparing the same packages against the
+    /// same installed set gives the same id, anything else a new one.
+    id: []const u8,
     summary: []const u8,
     /// Packages to install or move to another version, and to remove.
     install: usize,
     remove: usize,
 
-    pub fn of(s: deploy.Staged) Prepared {
-        return .{ .summary = s.summary, .install = s.packages.len, .remove = s.remove.len };
+    pub fn of(arena: Allocator, s: deploy.Staged) !Prepared {
+        var lines: std.ArrayList([]const u8) = .empty;
+        for (s.packages) |f| try lines.append(arena, try std.fmt.allocPrint(arena, "+ {s}\n", .{f}));
+        for (s.remove) |n| try lines.append(arena, try std.fmt.allocPrint(arena, "- {s}\n", .{n}));
+        std.mem.sort([]const u8, lines.items, {}, struct {
+            fn lessThan(_: void, a: []const u8, b: []const u8) bool {
+                return std.mem.lessThan(u8, a, b);
+            }
+        }.lessThan);
+        var text: std.Io.Writer.Allocating = .init(arena);
+        try text.writer.print("dave.prepared/1\n{s}\n", .{s.db_hash});
+        for (lines.items) |l| try text.writer.writeAll(l);
+        const hash = archive.hashBytes(text.written());
+        return .{
+            .id = try std.fmt.allocPrint(arena, "sha256:{s}", .{&hash}),
+            .summary = s.summary,
+            .install = s.packages.len,
+            .remove = s.remove.len,
+        };
     }
 };
 
@@ -138,7 +158,7 @@ pub fn planOf(arena: Allocator, kind: plan.Kind, p: plan.Plan, index: Index, pre
         .remove = try changes(arena, p.remove),
         .download_size = p.download,
         .disk_change = p.disk,
-        .prepared = if (prepared) |s| Prepared.of(s) else null,
+        .prepared = if (prepared) |s| try Prepared.of(arena, s) else null,
     };
 }
 
@@ -173,7 +193,7 @@ pub fn digest(arena: Allocator, kind: plan.Kind, p: plan.Plan) !?[]const u8 {
 // `running` and `next_boot` (deployment ids), `deployments` (each `id`,
 // `running`, `next_boot`, `health`: good, untested, failed, or null without a
 // boot entry; `pinned`, `reason`, `created`, `parent`), `prepared_upgrade`
-// (null, or the upgrade waiting for shutdown: `summary`, `install`,
+// (null, or the upgrade waiting for shutdown: `id`, `summary`, `install`,
 // `remove`) and `last_upgrade` (null, or how the last upgrade applied at
 // shutdown went: see Outcome). `dave.deployments/1` has `running`,
 // `complete` and `deployments` alone.
@@ -294,7 +314,7 @@ pub fn statusOf(arena: Allocator, running: u32, view: deploy.System.Overview) !S
         .running = running,
         .next_boot = next,
         .deployments = try deploymentsOf(arena, view),
-        .prepared_upgrade = if (view.staged) |s| Prepared.of(s) else null,
+        .prepared_upgrade = if (view.staged) |s| try Prepared.of(arena, s) else null,
         .last_upgrade = try lastUpgrade(arena, running, view),
     };
 }
@@ -398,6 +418,11 @@ test "status says explicitly that nothing is prepared, and its revision follows 
     const t = try withRevision(a, try statusOf(a, 5, staged));
     try testing.expect(!std.mem.eql(u8, s.revision, t.revision));
     try testing.expectEqual(@as(usize, 1), t.prepared_upgrade.?.install);
+    // The same upgrade prepared again has the same id; another has another.
+    try testing.expectEqualStrings(t.prepared_upgrade.?.id, (try statusOf(a, 5, staged)).prepared_upgrade.?.id);
+    var other = staged;
+    other.staged = .{ .db_hash = "x", .summary = "1 to install or upgrade, 0 to remove", .packages = &.{"b.dave"} };
+    try testing.expect(!std.mem.eql(u8, t.prepared_upgrade.?.id, (try statusOf(a, 5, other)).prepared_upgrade.?.id));
     try testing.expectEqualStrings(s.revision, (try withRevision(a, try statusOf(a, 5, v))).revision);
 }
 

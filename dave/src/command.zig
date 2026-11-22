@@ -74,3 +74,12 @@ test "programs are run, their output kept, and their failures described" {
     try testing.expectError(error.CommandFailed, run(arena, testing.io, &.{"/nonexistent/program"}, .{}, &diag));
     try testing.expect(std.mem.startsWith(u8, diag.message, "cannot run /nonexistent/program"));
 }
+
+test "a program that cannot be found is reported, not ignored" {
+    var arena: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena.deinit();
+    var diag: Diagnostic = .{};
+    const result = run(arena.allocator(), std.testing.io, &.{"dave-test-no-such-program"}, .{}, &diag);
+    try std.testing.expectError(error.CommandFailed, result);
+    try std.testing.expect(std.mem.indexOf(u8, diag.message, "cannot run dave-test-no-such-program") != null);
+}
