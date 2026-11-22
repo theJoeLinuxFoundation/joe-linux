@@ -234,7 +234,7 @@ JSON
   { run = 'dave status', contains = "An upgrade is ready" },
   { run = 'as_user "dave status --json"', capture = "prepared" },
   { host = '''
-jq -e '.running == 3 and .complete and .prepared_upgrade.install >= 1 and (.prepared_upgrade.summary | length > 0)' >/dev/null <<'JSON'
+jq -e '.running == 3 and .complete and .prepared_upgrade.install >= 1 and (.prepared_upgrade.summary | length > 0) and (.prepared_upgrade.id | startswith("sha256:"))' >/dev/null <<'JSON'
 {{prepared}}
 JSON
 ''', name = "for a program: the upgrade is ready, restart to apply" },
