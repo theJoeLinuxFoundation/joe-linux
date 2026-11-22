@@ -197,6 +197,11 @@ JSON
 
   { section = "users without root: status, deployments, search and upgrade --check, but not the top level" },
   { run = '[ "$(as_user "dave deployments")" = "$(dave deployments)" ]', name = "a user sees the deployments root sees" },
+  { run = 'systemctl is-active dave-refresh.timer', equals = "active", name = "the index refresh is scheduled" },
+  { host = '''s=$(repo_stage {{repo}} fresh 1.0-r1) && repo_script "$s/usr/bin/fresh" 'echo fresh' && repo_pack {{repo}} fresh 1.0-r1 && repo_index {{repo}}''', name = "publish fresh 1.0-r1" },
+  { run = 'as_user "dave search --json fresh"', lacks = '"name":"fresh"', name = "a user sees only the index fetched last" },
+  { run = 'systemctl start dave-refresh.service && systemctl is-failed dave-refresh.service', exit = "any", equals = "inactive", name = "the refresh runs and succeeds" },
+  { run = 'as_user "dave search --json fresh"', contains = '"name":"fresh"', name = "then the user sees the new package" },
   { run = 'as_user "dave search hello"', matches = '^hello\s+2\.0-r1\b' },
   { run = 'as_user "dave upgrade --check"', matches = '^\s+hello\s+1\.0-r1 -> 2\.0-r1', contains = "An upgrade is already prepared" },
   # Refused before anything is touched, saying how to do it.

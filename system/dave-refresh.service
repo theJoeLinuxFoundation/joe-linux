@@ -1,0 +1,15 @@
+# Fetches the repositories' signed indexes, so that what users without root
+# ask dave (search, info, a dry run, upgrade --check, and the desktop's
+# Packages application through them) is current: only root may fetch them.
+# `upgrade --check` changes nothing, and fetches nothing while another dave
+# is busy. A machine that cannot reach its repositories is not an error
+# here (the leading -): the next run tries again.
+[Unit]
+Description=Fetch the package indexes of joe Linux's repositories
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=-/usr/bin/dave upgrade --check
+StandardOutput=null

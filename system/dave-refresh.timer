@@ -1,0 +1,10 @@
+# A while after boot, then twice a day. Enabled by the link the package
+# ships in timers.target.wants, as dave's other units are.
+[Unit]
+Description=Fetch the package indexes now and then
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec=12h
+RandomizedDelaySec=30min
+

@@ -13,13 +13,16 @@ package() {
     install -Dm644 /recipe/files/boot-complete-dave.conf "$units/boot-complete.target.d/10-dave.conf"
     install -Dm644 /recipe/files/dave-seal.service "$units/dave-seal.service"
     install -Dm644 /recipe/files/dave-status.service "$units/dave-status.service"
+    install -Dm644 /recipe/files/dave-refresh.service "$units/dave-refresh.service"
+    install -Dm644 /recipe/files/dave-refresh.timer "$units/dave-refresh.timer"
 
     # The units are enabled by shipping the links: there are no install scripts.
-    install -d "$units/boot-complete.target.requires" "$units/multi-user.target.wants" "$units/sysinit.target.wants"
+    install -d "$units/boot-complete.target.requires" "$units/multi-user.target.wants" "$units/sysinit.target.wants" "$units/timers.target.wants"
     ln -s ../dave-seal.service "$units/sysinit.target.wants/dave-seal.service"
     ln -s ../dave-boot-check.service "$units/boot-complete.target.requires/dave-boot-check.service"
     ln -s ../dave-finalize.service "$units/multi-user.target.wants/dave-finalize.service"
     ln -s ../dave-status.service "$units/multi-user.target.wants/dave-status.service"
+    ln -s ../dave-refresh.timer "$units/timers.target.wants/dave-refresh.timer"
 
     install -Dm644 /recipe/files/dave-tmpfiles.conf "$DESTDIR/usr/lib/tmpfiles.d/dave.conf"
 
