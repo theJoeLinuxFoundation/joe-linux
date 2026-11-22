@@ -1,6 +1,6 @@
 .{
     .name = "mundane-apps",
-    // A snapshot of main at 4c254b4 (22 November 2026): "pre" sorts it
+    // A snapshot of main at 182cd7c (22 November 2026): "pre" sorts it
     // before a released 0.1.0. The archive is upstream's tools/dist.sh output
     // (the crates vendored), byte-reproducible, hosted on joelinux.io.
     .version = "0.1.0pre20261122",
@@ -10,7 +10,7 @@
     // The vendored crates keep their own licences, shipped in the archive.
     .license = "BSD-3-Clause AND Apache-2.0",
     .sources = .{
-        .{ .url = "https://joelinux.io/sources/mundane-apps-0.1.0-4c254b4.tar.xz", .sha256 = "ede9f1956afa1bba42736db820634a8d7c3f2321d68d1cd1aa25d46891f25d5f" },
+        .{ .url = "https://joelinux.io/sources/mundane-apps-0.1.0-182cd7c.tar.xz", .sha256 = "7787e4622ed6021cacf1be2293ac6bb75682f835320f3631c6b4e1eae4f38b52" },
     },
     // What the eighteen programs link (readelf), what they load at run time
     // (GPUI: Vulkan, Wayland, EGL; Document Viewer: PDFium; Video and Music:
