@@ -76,6 +76,13 @@ steps = [
   { run = 'published=$(as_user "dave status") && expect_running {{n}} && [ "$published" = "$(dave status)" ]', name = "a user saw what root sees before root ran dave" },
   { run = 'systemctl is-active dave-boot-check.service', equals = "active" },
   { run = 'dave status', lacks = "An upgrade is ready" },
+  { run = 'dave status --json', capture = "status_json" },
+  { host = '''
+jq -e '.schema == "dave.status/1" and .running == {{n}} and .next_boot == {{n}} and .prepared_upgrade == null and .last_upgrade.outcome == "succeeded" and .last_upgrade.deployment == {{n}} and .last_upgrade.event == "deployment-{{n}}"' >/dev/null <<'JSON'
+{{status_json}}
+JSON
+''', name = "for a program: the upgrade succeeded" },
+  { run = '[ "$(as_user "dave status --json")" = "$(dave status --json)" ]', name = "a user reads the same answer, revision included" },
 ]
 
 [templates.deployment-scenarios]
@@ -153,6 +160,12 @@ done
   { run = 'expect_running 1' },
   { run = 'hello', equals = "hello v1" },
   { run = 'id late >/dev/null 2>&1; echo $?', equals = "1", name = "the account is not in deployment 1" },
+  { run = 'dave status --json', capture = "rolled_back" },
+  { host = '''
+jq -e '.running == 1 and .last_upgrade.deployment == 2 and .last_upgrade.outcome == "not_running"' >/dev/null <<'JSON'
+{{rolled_back}}
+JSON
+''', name = "for a program: going back by choice is not a failed upgrade" },
   { reboot = {} },
   { run = 'expect_running 1' },
 
@@ -210,6 +223,12 @@ done
   { run = 'expect_running 3' },
   { run = 'hello', equals = "hello v1" },
   { run = 'dave status', contains = "An upgrade is ready" },
+  { run = 'as_user "dave status --json"', capture = "prepared" },
+  { host = '''
+jq -e '.running == 3 and .complete and .prepared_upgrade.install >= 1 and (.prepared_upgrade.summary | length > 0)' >/dev/null <<'JSON'
+{{prepared}}
+JSON
+''', name = "for a program: the upgrade is ready, restart to apply" },
   { use = "reboot-into-upgrade", with = { n = 4 } },
   { run = 'expect_running 4' },
   { run = 'hello', equals = "hello v2" },
@@ -235,6 +254,12 @@ repo_index {{repo}}
   { run = 'entries', contains = "joe-5+0-3.conf" },
   { run = 'journalctl -b -1 -u dave-boot-check.service --no-pager -o cat 2>/dev/null | tail -n 5', exit = "any", contains = "boot check failed" },
   { run = 'dave status', contains = "failed" },
+  { run = 'dave status --json', capture = "fell_back" },
+  { host = '''
+jq -e '.running == 4 and .last_upgrade.outcome == "fallback" and .last_upgrade.deployment == 5 and .last_upgrade.event == "deployment-5" and ([.deployments[] | select(.id == 5) | .health] == ["failed"])' >/dev/null <<'JSON'
+{{fell_back}}
+JSON
+''', name = "for a program: the broken upgrade fell back by itself" },
 
   { section = "garbage collection removes the failed and the oldest deployments" },
   { run = 'dave deployments gc' },
@@ -249,6 +274,8 @@ tags = ["vm", "scaffold"]
 deps = ["scaffold-dave-image"]
 services = ["test-repo-scaffold"]
 machine = "scaffold-dave"
+# What dave answers programs is JSON, read on this host.
+requires = { commands = ["jq"] }
 timeout = "45m"
 prelude = ". tests/lib/repo.sh"
 on_boot = ${deployment_helpers}
@@ -261,6 +288,7 @@ tags = ["vm", "joe"]
 deps = ["joe-deployments-image"]
 services = ["joe-repo", "test-repo-joe"]
 machine = "joe-deployments"
+requires = { commands = ["jq"] }
 timeout = "45m"
 prelude = ". tests/lib/repo.sh"
 on_boot = ${deployment_helpers}
