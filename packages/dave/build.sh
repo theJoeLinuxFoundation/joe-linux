@@ -29,4 +29,8 @@ package() {
     install -Dm644 /recipe/files/completion.bash "$share/bash-completion/completions/dave"
     install -Dm644 /recipe/files/completion.zsh "$share/zsh/site-functions/_dave"
     install -Dm644 /recipe/files/completion.fish "$share/fish/vendor_completions.d/dave.fish"
+
+    # How a desktop program has dave change the installed software, after
+    # a person authenticates; dave itself narrows what it will then do.
+    install -Dm644 /recipe/files/io.joelinux.dave.policy "$share/polkit-1/actions/io.joelinux.dave.policy"
 }

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!--
+  How a desktop program changes the installed software: after showing a
+  person the plan of a dry run in JSON (dave(8), section JSON), it runs
+  pkexec /usr/bin/dave with the same install, remove or upgrade, adding the
+  plan's digest as the expected change. Started by pkexec, dave refuses
+  anything else.
+-->
+<policyconfig>
+  <vendor>joe Linux</vendor>
+  <vendor_url>https://joelinux.io/</vendor_url>
+  <action id="io.joelinux.dave.change">
+    <description>Change the installed software</description>
+    <message>Authentication is required to install, remove or upgrade software</message>
+    <icon_name>system-software-install</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/dave</annotate>
+  </action>
+</policyconfig>

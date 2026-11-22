@@ -199,6 +199,7 @@ const App = struct {
     }
 
     fn dispatch(app: *App, cmd: cli.Command, rest: []const []const u8) !void {
+        if (app.delegated()) try app.checkDelegated(cmd);
         try app.checkRoot(cmd, rest);
         switch (cmd) {
             .help => return app.cmdHelp(rest),
@@ -225,6 +226,33 @@ const App = struct {
             .image => return app.cmdImage(rest),
             .@"install-system" => return app.cmdInstallSystem(rest),
         }
+    }
+
+    /// Started by pkexec for a person who authenticated (the polkit action
+    /// io.joelinux.dave.change, dave/share/io.joelinux.dave.policy): root,
+    /// with PKEXEC_UID set by pkexec.
+    fn delegated(app: *App) bool {
+        if (linux.geteuid() != 0) return false;
+        const env = app.environ orelse return false;
+        return env.get("PKEXEC_UID") != null;
+    }
+
+    /// What a desktop program may then have dave do: install, remove or
+    /// upgrade this system's packages from its signed repositories, and only
+    /// the change the person reviewed (--expect). Nothing that works on
+    /// another root or cache, skips triggers, replaces files no package
+    /// owns or reboots; no other command. So the time polkit keeps an
+    /// authentication open lends a program no more than that.
+    fn checkDelegated(app: *App, cmd: cli.Command) !void {
+        const o = app.opts;
+        const change = switch (cmd) {
+            .install, .remove, .upgrade => true,
+            else => false,
+        };
+        if (change and o.expect != null and std.mem.eql(u8, o.root, "/") and o.cache == null and
+            !o.no_triggers and !o.overwrite and !o.reboot) return;
+        return app.fail("started by pkexec, dave only installs, removes or upgrades this system's packages, " ++
+            "and only the change reviewed: give --expect with the digest a --dry-run --json reported", .{});
     }
 
     /// Changing the running system needs root. Saying so before anything

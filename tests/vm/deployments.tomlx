@@ -171,7 +171,11 @@ JSON
 
   { section = "install: takes effect immediately and leaves a way back" },
   { host = '''s=$(repo_stage {{repo}} moo 1.0-r1) && repo_script "$s/usr/bin/moo" 'echo moo' && repo_pack {{repo}} moo 1.0-r1 && repo_index {{repo}}''', name = "publish moo 1.0-r1" },
-  { run = 'dave install moo', timeout = "5m", contains = "Saved the current system as deployment 3." },
+  # As the desktop's Packages application does it (io.joelinux.dave.policy):
+  # the plan of a dry run, then through pkexec, which sets PKEXEC_UID,
+  # exactly that change.
+  { run = 'PKEXEC_UID=1234 dave install moo', exit = 1, stream = "combined", contains = "only the change reviewed", name = "started by pkexec without --expect, nothing" },
+  { run = '''d=$(dave install --dry-run --json moo | sed -n 's/.*"digest":"\([^"]*\)".*/\1/p'); PKEXEC_UID=1234 dave install -y --json --expect "$d" moo''', timeout = "5m", stream = "combined", contains = ["Saved the current system as deployment 3.", '"schema":"dave.result/1"', '"rollback_point":3'], name = "the change reviewed, as pkexec starts it" },
   { run = 'moo', equals = "moo" },
   { run = 'expect_running 1' },
   { run = 'dave rollback', contains = "Deployment 3 will start on the next boot" },

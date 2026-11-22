@@ -481,6 +481,22 @@ of a dry run and then runs the same command with
 .B \-\-expect
 .IR digest ;
 if the repositories or the system have moved meanwhile, nothing is changed.
+.PP
+A desktop program makes the change through
+.BR pkexec (1),
+under the polkit action
+.B io.joelinux.dave.change
+(an administrator's password, remembered for a few minutes). Started by
+pkexec, dave installs, removes or upgrades this system's packages and does
+nothing else: it requires
+.BR \-\-expect ,
+and refuses any other command,
+.BR \-\-root ,
+.BR \-\-cache ,
+.BR \-\-no\-triggers ,
+.B \-\-overwrite
+and
+.BR \-\-reboot .
 .SH ENVIRONMENT
 .TP
 .B NO_COLOR
