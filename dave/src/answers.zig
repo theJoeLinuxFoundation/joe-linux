@@ -9,7 +9,11 @@
 //! without changing <n>; a field that goes or changes meaning makes it
 //! <n+1>. A reader ignores fields it does not know and treats a schema it
 //! does not know as unreadable. A failure prints a `dave.error/1` document
-//! (its `message` is the sentence dave says to people) and exits 1.
+//! and exits 1: its `message` is the sentence dave says to people, and its
+//! `reason`, for the failures a program acts on, says which: `changed` (the
+//! change is not the one `--expect` names: review it again), `not_allowed`
+//! (started by pkexec, dave does only what dave.8 says it may) or
+//! `needs_root`; null for any other.
 //!
 //! - `dave.list/1`: `packages`, each `name`, `version`, `requested`.
 //! - `dave.info/1`: `name`, `description`, `license`, `installed` (null, or
@@ -307,7 +311,9 @@ pub fn withRevision(arena: Allocator, s: Status) !Status {
     return out;
 }
 
-pub const Error = struct { schema: []const u8 = "dave.error/1", message: []const u8 };
+pub const Reason = enum { changed, not_allowed, needs_root };
+
+pub const Error = struct { schema: []const u8 = "dave.error/1", message: []const u8, reason: ?Reason = null };
 
 // -- tests --------------------------------------------------------------------
 

@@ -337,7 +337,17 @@ not know as unreadable. A failure prints
 .B dave.error/1
 with the
 .B message
-dave says to people, and exits with status 1.
+dave says to people and a
+.B reason
+for the failures a program acts on:
+.B changed
+(the change is not the one
+.B \-\-expect
+names; review it again),
+.B not_allowed
+(see the end of this section) or
+.BR needs_root ;
+null for any other. It exits with status 1.
 .TP
 .B dave.list/1
 .BR packages :

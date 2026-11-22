@@ -76,6 +76,8 @@ const App = struct {
     seal: bool = true,
     /// The last failure, for the error event.
     last_error: []const u8 = "",
+    /// Which failure it was, when a program acts on it (answers.zig).
+    fail_reason: ?answers.Reason = null,
     /// Set once the running system's deployments have been opened, so that
     /// what `dave status` shows is published again before dave exits.
     opened_system: bool = false,
@@ -147,6 +149,7 @@ const App = struct {
         const want = app.opts.expect orelse return;
         const have = if (p) |x| try answers.digest(app.arena, kind, x) else null;
         if (have != null and std.mem.eql(u8, have.?, want)) return;
+        app.fail_reason = .changed;
         return app.fail("the change dave would make now ({s}) is not the one reviewed ({s}); nothing was changed", .{ have orelse "none", want });
     }
 
@@ -193,7 +196,7 @@ const App = struct {
         defer if (app.opened_system) app.publishStatus();
         app.dispatch(cmd, rest) catch |e| {
             // install-system reports its failure as an event of its own.
-            if (app.opts.json and cmd != .@"install-system") app.emit(answers.Error{ .message = app.errorText(e) });
+            if (app.opts.json and cmd != .@"install-system") app.emit(answers.Error{ .message = app.errorText(e), .reason = app.fail_reason });
             return e;
         };
     }
@@ -251,6 +254,7 @@ const App = struct {
         };
         if (change and o.expect != null and std.mem.eql(u8, o.root, "/") and o.cache == null and
             !o.no_triggers and !o.overwrite and !o.reboot) return;
+        app.fail_reason = .not_allowed;
         return app.fail("started by pkexec, dave only installs, removes or upgrades this system's packages, " ++
             "and only the change reviewed: give --expect with the digest a --dry-run --json reported", .{});
     }
@@ -267,6 +271,7 @@ const App = struct {
             else => true,
         };
         if (!needed) return;
+        app.fail_reason = .needs_root;
         return app.fail("{s} needs root; run it with doas: doas dave {s}", .{ what, try ui.shellQuote(app.arena, app.argv) });
     }
 
