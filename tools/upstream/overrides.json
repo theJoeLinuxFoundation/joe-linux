@@ -1,0 +1,28 @@
+{
+  "mesa": {
+    "kind": "directory",
+    "url": "https://archive.mesa3d.org/",
+    "pattern": "mesa-([0-9]+(?:\\.[0-9]+)*)\\.tar\\.xz",
+    "reason": "Canonical HTTPS Mesa archive; numeric release candidates still require release-note review"
+  },
+  "spirv-cross": {
+    "kind": "manual",
+    "reason": "Coordinated vulkan-sdk version pin; review the five SDK recipes together, not independent project releases"
+  },
+  "spirv-headers": {
+    "kind": "manual",
+    "reason": "Coordinated vulkan-sdk version pin; review the five SDK recipes together, not independent project releases"
+  },
+  "spirv-tools": {
+    "kind": "manual",
+    "reason": "Coordinated vulkan-sdk version pin; review the five SDK recipes together, not independent project releases"
+  },
+  "vulkan-headers": {
+    "kind": "manual",
+    "reason": "Coordinated vulkan-sdk version pin; review the five SDK recipes together, not independent project releases"
+  },
+  "vulkan-icd-loader": {
+    "kind": "manual",
+    "reason": "Coordinated vulkan-sdk version pin; review the five SDK recipes together, not independent project releases"
+  }
+}

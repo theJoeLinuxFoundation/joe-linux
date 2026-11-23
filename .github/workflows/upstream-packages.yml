@@ -1,0 +1,65 @@
+name: Upstream package watch
+
+on:
+  schedule:
+    - cron: '23 6 * * *'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'tools/upstream/**'
+      - '.github/workflows/upstream-packages.yml'
+      - 'packages/**/package.zon'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/upstream/**'
+      - '.github/workflows/upstream-packages.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upstream-packages-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Offline checker tests and full inventory
+        run: |
+          python3 -m unittest discover -s tools/upstream -p 'test_*.py' -v
+          python3 tools/upstream/check.py --inventory-only
+
+  upstream:
+    # PRs/pushes never trigger upstream network polling or receive this token.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    needs: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check all recipes against upstream metadata
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 tools/upstream/check.py --workers 6
+      - name: Publish job summary
+        if: always()
+        run: |
+          if test -f upstream-report/summary.md; then
+            cat upstream-report/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Preserve complete reports (including partial failures)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: upstream-report
+          path: upstream-report/
+          retention-days: 30
+          if-no-files-found: error
